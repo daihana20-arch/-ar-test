@@ -23,18 +23,21 @@ body>video,.arjs-video{
 a-scene{position:fixed!important;top:0!important;left:0!important;
   width:100vw!important;height:100vh!important;z-index:1!important;
   pointer-events:none!important;background:transparent!important}
-#p0{position:fixed;inset:0;z-index:50;background:#000;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+#p0{position:fixed;inset:0;z-index:50;background:#0c0c0c;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
   transition:opacity 0.8s}
 #p0.out{opacity:0;pointer-events:none}
-.p0-label{font-size:9px;letter-spacing:0.45em;color:#333;text-transform:uppercase}
-.p0-title{font-size:clamp(30px,9vw,52px);font-family:Georgia,serif;font-style:italic;
-  text-align:center;line-height:1.2}
-.p0-sub{font-size:9px;letter-spacing:0.2em;color:#2a2a2a;margin-bottom:12px}
-#btn-start{background:none;border:1px solid #2a2a2a;color:#444;
-  font-family:'Courier New',monospace;font-size:9px;letter-spacing:0.4em;
-  text-transform:uppercase;padding:14px 38px;cursor:pointer;transition:all 0.4s}
-#btn-start:hover{border-color:#555;color:#fff}
+@keyframes wv1{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(360deg)}}
+@keyframes wv2{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(-360deg)}}
+.top-label{font-size:15px;letter-spacing:0.4em;color:#aaa;text-transform:uppercase}
+.lt{position:relative;display:inline-block;padding:44px 90px;overflow:hidden;border-radius:70px}
+.lt span{position:relative;z-index:2;font-family:Georgia,serif;font-style:italic;font-size:clamp(42px,10vw,82px);color:#fff;line-height:1.2;text-align:center;display:block}
+.lb{position:absolute;top:-100px;left:0;width:100%;height:300%;background:hsl(225,65%,22%);box-shadow:inset 0 0 80px rgba(0,0,0,0.6)}
+.lb::before{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:48%;background:rgba(6,6,10,1);animation:wv1 14s linear infinite}
+.lb::after{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:42%;background:rgba(6,6,10,0.55);animation:wv2 20s linear infinite}
+#btn-start{background:none;border:1px solid #777;color:#ccc;font-family:'Courier New',monospace;font-size:15px;letter-spacing:0.4em;text-transform:uppercase;padding:18px 52px;cursor:pointer;transition:all 0.4s;margin-top:8px}
+#btn-start:hover{border-color:#fff;color:#fff}
+.copy{font-size:12px;color:#444;position:absolute;bottom:28px;left:50%;transform:translateX(-50%);white-space:nowrap}
 #p-wait{position:fixed;inset:0;z-index:40;background:#000;
   display:none;align-items:center;justify-content:center;
   font-size:10px;letter-spacing:0.3em;color:rgba(255,255,255,0.3)}
@@ -75,10 +78,13 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 <body>
 
 <div id="p0">
-  <p class="p0-label">Mestni gozd Celje</p>
-  <p class="p0-title">Akumulacija<br>tišine</p>
-  <p class="p0-sub">Living Museum of Plant Intelligence</p>
+  <p class="top-label">Mestni gozd Celje</p>
+  <div class="lt">
+    <div class="lb"></div>
+    <span>Akumulacija<br>tišine</span>
+  </div>
   <button id="btn-start">▶ &nbsp; ZAČNI</button>
+  <p class="copy">© Keiko Miyazaki &amp; Darija Cvikl 2026</p>
 </div>
 
 <div id="p-wait">INITIALIZING CAMERA…</div>
