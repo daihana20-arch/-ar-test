@@ -9,9 +9,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#fff}
-.arjs-loader,.arjs-instructions,#arjs-instructions,
-body>div[style*="z-index: 999"],body>div[style*="z-index:999"],
+/* AR.jsのUI要素のみ非表示（カメラ映像は残す） */
+.arjs-loader,#arjs-instructions,.arjs-instructions,
+.a-enter-vr,.a-orientation-modal,
 a-scene>div{display:none!important;pointer-events:none!important}
+/* カメラ映像：背面に全画面表示 */
+body>video,.arjs-video{
+  position:fixed!important;top:0!important;left:0!important;
+  width:100%!important;height:100%!important;
+  object-fit:cover!important;z-index:0!important}
 .a-canvas{position:fixed!important;top:0!important;left:0!important;
   width:100vw!important;height:100vh!important;z-index:1!important;pointer-events:none!important}
 a-scene{position:fixed!important;top:0!important;left:0!important;
@@ -198,15 +204,6 @@ function stepParticles(){
 let arMarkerEl=null;
 
 function initAR(){
-  new MutationObserver(()=>{
-    document.querySelectorAll('body>div').forEach(d=>{
-      if(d.id&&d.id!=='arjs-instructions') return;
-      const st=window.getComputedStyle(d);
-      if(parseInt(st.zIndex)>90||st.backgroundColor!=='rgba(0, 0, 0, 0)')
-        d.style.display='none';
-    });
-  }).observe(document.body,{childList:true,subtree:true});
-
   const scene=document.createElement('a-scene');
   scene.setAttribute('embedded','');
   scene.setAttribute('arjs','sourceType:webcam;debugUIEnabled:false;uiScanning:no;uiError:no;uiLoading:no;patternRatio:0.5;');
