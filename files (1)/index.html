@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <title>Planet Intelligence — Akumulacija tišine</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
+<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#fff}
@@ -67,13 +67,16 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 </style>
 </head>
 <body>
+
 <div id="p0">
   <p class="p0-label">Mestni gozd Celje</p>
   <p class="p0-title">Akumulacija<br>tišine</p>
   <p class="p0-sub">Living Museum of Plant Intelligence</p>
   <button id="btn-start">▶ &nbsp; ZAČNI</button>
 </div>
+
 <div id="p-wait">INITIALIZING CAMERA…</div>
+
 <div id="p2">
   <canvas id="ph-cv"></canvas>
   <div id="hud">
@@ -88,6 +91,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
     <div id="sci-sub"></div>
   </div>
 </div>
+
 <div id="p3">
   <div id="countdown">10</div>
   <div id="end-text">
@@ -95,163 +99,182 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
     <div id="end-line2">Put down your phone. Hug the tree.</div>
   </div>
 </div>
+
 <script>
-const LAT=46.227222,LON=15.259167;
-let W=window.innerWidth,H=window.innerHeight;
-let markerSeen=false,phActive=false,phAlpha=0,phase=0;
+const LAT=46.227222, LON=15.259167;
+let W=window.innerWidth, H=window.innerHeight;
+let markerSeen=false, phActive=false, phAlpha=0, phase=0, tick=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
+
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
 function resize(){W=phCv.width=window.innerWidth;H=phCv.height=window.innerHeight;}
-resize();window.addEventListener('resize',resize);
-let phGrid=null,phW=0,phH=0,phImg=null,phPx=null,phAgents=[];
-const FADE_IN=0.004,FADE_OUT=0.018;
-function phParams(){
-  const h=weather.humidity,s=weather.radiation,w=weather.wind,sm=weather.soilMoisture,v=weather.vpd;
-  return{n:Math.round(300+(h/100)*900),sd:8+(s/800)*20,evap:0.003+((1-sm)*0.02),speed:1.2+(w/20)*2,t:Math.min(v/3,1)};
-}
-function phInit(){
-  phW=W;phH=H;
-  phGrid=new Float32Array(phW*phH);
-  phImg=phCtx.createImageData(phW,phH);
-  phPx=phImg.data;
-  const p=phParams(),cx=W/2,cy=H/2,rad=Math.min(W,H)*0.44;
-  phAgents=[];
-  for(let i=0;i<p.n;i++){
-    const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*rad;
-    const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
-    const ang=Math.atan2(cy-y,cx-x),sp=p.speed*(0.7+Math.random()*0.6);
-    phAgents.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp});
+resize(); window.addEventListener('resize',resize);
+
+const FADE_IN=0.008, FADE_OUT=0.015;
+
+/* ── Particle Engine ── */
+const PI=Math.PI, TAU=PI*2;
+const attractors=[
+  {x:0.3,y:0.4,freq:0.007,phase:0},
+  {x:0.7,y:0.6,freq:0.011,phase:2.1},
+  {x:0.5,y:0.2,freq:0.005,phase:4.3},
+  {x:0.2,y:0.7,freq:0.009,phase:1.1},
+  {x:0.8,y:0.3,freq:0.013,phase:3.7},
+];
+
+class Particle {
+  constructor(ax,ay,hue){
+    this.x=ax+(Math.random()-0.5)*60;
+    this.y=ay+(Math.random()-0.5)*60;
+    this.vx=(Math.random()-0.5)*0.8;
+    this.vy=(Math.random()-0.5)*0.8;
+    this.hue=hue+Math.random()*40-20;
+    this.life=0.7+Math.random()*0.3;
+    this.decay=0.003+Math.random()*0.002;
+    this.wobble=Math.random()*TAU;
+    this.wobbleSpeed=(Math.random()-0.5)*0.06;
+  }
+  step(tick){
+    const spd=8*0.015;
+    this.wobble+=this.wobbleSpeed;
+    const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
+    const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
+    this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
+    this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
+    this.vx*=0.97; this.vy*=0.97;
+    this.x+=this.vx; this.y+=this.vy;
+    this.life-=this.decay;
+  }
+  draw(ctx,tick){
+    const a=Math.max(0,this.life);
+    ctx.fillStyle=`hsla(${this.hue+tick*0.2},70%,65%,${a*0.55})`;
+    ctx.beginPath();
+    ctx.arc(this.x,this.y,Math.max(0.001,a*4),0,TAU);
+    ctx.fill();
   }
 }
-function phStep(){
-  if(!phGrid)return;
-  const p=phParams(),cx=W/2,cy=H/2,rad=Math.min(W,H)*0.44,rad2=rad*rad,SA=Math.PI/5;
-  for(const ag of phAgents){
-    const ang=Math.atan2(ag.vy,ag.vx);
-    function sense(off){
-      const a=ang+off,sx=Math.round(ag.x+Math.cos(a)*p.sd),sy=Math.round(ag.y+Math.sin(a)*p.sd);
-      if(sx<0||sx>=phW||sy<0||sy>=phH)return 0;
-      return phGrid[sy*phW+sx];
-    }
-    const fwd=sense(0),lft=sense(-SA),rgt=sense(SA);
-    let na=ang;
-    if(fwd>lft&&fwd>rgt){}
-    else if(lft>rgt)na=ang-SA*0.6;
-    else if(rgt>lft)na=ang+SA*0.6;
-    else na=ang+(Math.random()<.5?1:-1)*SA*0.3;
-    const sp=p.speed*(0.8+Math.random()*0.4);
-    ag.vx=Math.cos(na)*sp;ag.vy=Math.sin(na)*sp;
-    ag.x+=ag.vx;ag.y+=ag.vy;
-    const dx=ag.x-cx,dy=ag.y-cy;
-    if(dx*dx+dy*dy>rad2){
-      const a2=Math.random()*Math.PI*2,r2=Math.sqrt(Math.random())*rad;
-      ag.x=cx+r2*Math.cos(a2);ag.y=cy+r2*Math.sin(a2);
-      const ang2=Math.atan2(cy-ag.y,cx-ag.x);
-      ag.vx=Math.cos(ang2)*sp;ag.vy=Math.sin(ang2)*sp;
-    } else {
-      const ix=Math.round(ag.x),iy=Math.round(ag.y);
-      if(ix>=0&&ix<phW&&iy>=0&&iy<phH)phGrid[iy*phW+ix]=Math.min(phGrid[iy*phW+ix]+1,255);
-    }
-  }
-  const t=p.t;
-  const cA=[Math.round(t*255),Math.round(200-t*170),Math.round(255-t*200)];
-  const cB=[Math.round(80+t*100),Math.round(255-t*230),Math.round(130-t*120)];
-  const ev=p.evap,ga=phAlpha;
-  for(let i=0;i<phW*phH;i++){
-    const v=phGrid[i];
-    if(v>0)phGrid[i]=Math.max(0,v-ev*v-0.005);
-    const vi=Math.min(255,v*1.8)|0,px=i*4;
-    phPx[px]=(cA[0]*vi+cB[0]*(255-vi))>>8;
-    phPx[px+1]=(cA[1]*vi+cB[1]*(255-vi))>>8;
-    phPx[px+2]=(cA[2]*vi+cB[2]*(255-vi))>>8;
-    phPx[px+3]=vi>4?Math.round(vi*ga):0;
-  }
+
+const pools=attractors.map((a,i)=>({attractor:a,hue:i*72,particles:[]}));
+
+function stepParticles(){
   phCtx.clearRect(0,0,W,H);
-  phCtx.putImageData(phImg,0,0);
+  if(phAlpha<=0) return;
+  phCtx.save();
+  phCtx.globalAlpha=phAlpha;
+  tick++;
+
+  for(const pool of pools){
+    const a=pool.attractor;
+    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.18)*W;
+    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.14)*H;
+
+    if(phAlpha>0.1 && pool.particles.length<120){
+      for(let i=0;i<3;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
+    }
+
+    pool.particles=pool.particles.filter(p=>p.life>0);
+    for(const p of pool.particles){ p.step(tick); p.draw(phCtx,tick); }
+
+    phCtx.strokeStyle=`hsla(${pool.hue+tick*0.2},60%,70%,0.08)`;
+    phCtx.lineWidth=0.5;
+    const pts=pool.particles;
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+        if(dx*dx+dy*dy<3600){
+          phCtx.beginPath();
+          phCtx.moveTo(pts[i].x,pts[i].y);
+          phCtx.lineTo(pts[j].x,pts[j].y);
+          phCtx.stroke();
+        }
+      }
+    }
+  }
+  phCtx.restore();
 }
+
+/* ── AR Setup ── */
 let arMarkerEl=null;
+
 function initAR(){
   new MutationObserver(()=>{
     document.querySelectorAll('body>div').forEach(d=>{
-      if(d.id&&d.id!=='arjs-instructions')return;
+      if(d.id&&d.id!=='arjs-instructions') return;
       const st=window.getComputedStyle(d);
-      if(st.zIndex>90||st.backgroundColor!=='rgba(0, 0, 0, 0)')d.style.display='none';
+      if(parseInt(st.zIndex)>90||st.backgroundColor!=='rgba(0, 0, 0, 0)')
+        d.style.display='none';
     });
   }).observe(document.body,{childList:true,subtree:true});
+
   const scene=document.createElement('a-scene');
   scene.setAttribute('embedded','');
   scene.setAttribute('arjs','sourceType:webcam;debugUIEnabled:false;uiScanning:no;uiError:no;uiLoading:no;patternRatio:0.5;');
   scene.setAttribute('renderer','alpha:true;antialias:false;');
   scene.setAttribute('vr-mode-ui','enabled:false');
   scene.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2;pointer-events:none;background:transparent;';
-  const assets=document.createElement('a-assets');
-  const vid=document.createElement('video');
-  vid.id='ar-vessel';vid.src='vessel.mp4';
-  vid.setAttribute('loop','');vid.setAttribute('crossorigin','anonymous');
-  vid.setAttribute('playsinline','');vid.muted=true;
-  assets.appendChild(vid);scene.appendChild(assets);
+
   const marker=document.createElement('a-marker');
-  marker.setAttribute('preset','hiro');
+  marker.setAttribute('type','pattern');
+  marker.setAttribute('url','pattern-pattern-Planet-A-square.patt');
   arMarkerEl=marker;
-  const plane=document.createElement('a-video');
-  plane.setAttribute('src','#ar-vessel');
-  plane.setAttribute('width','2.2');plane.setAttribute('height','1.4');
-  plane.setAttribute('rotation','-90 0 0');
-  plane.setAttribute('visible','false');
-  marker.appendChild(plane);
-  marker.addEventListener('markerFound',()=>{
-    markerSeen=true;
-    vid.play().catch(()=>{});
-    plane.setAttribute('visible','true');
-    if(!phActive){phActive=true;phInit();}
-  });
-  marker.addEventListener('markerLost',()=>{
-    markerSeen=false;
-    plane.setAttribute('visible','false');
-  });
+
+  marker.addEventListener('markerFound',()=>{ markerSeen=true; phActive=true; });
+  marker.addEventListener('markerLost', ()=>{ markerSeen=false; });
+
   scene.appendChild(marker);
   const cam=document.createElement('a-entity');
   cam.setAttribute('camera','');
   scene.appendChild(cam);
   document.body.appendChild(scene);
 }
+
+/* ── Main Loop ── */
 let p3started=false;
+
 function arLoop(){
   requestAnimationFrame(arLoop);
-  if(phase<2)return;
-  if(arMarkerEl&&arMarkerEl.object3D){
-    const now=arMarkerEl.object3D.visible;
-    if(now&&!markerSeen){markerSeen=true;if(!phActive){phActive=true;phInit();}}
-    else if(!now&&markerSeen)markerSeen=false;
+  if(phase<2) return;
+
+  if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
+  if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
+  if(!markerSeen && phAlpha<=0){
+    phActive=false;
+    pools.forEach(p=>p.particles=[]);
   }
-  if(markerSeen&&phAlpha<1)phAlpha=Math.min(1,phAlpha+FADE_IN);
-  if(!markerSeen&&phAlpha>0)phAlpha=Math.max(0,phAlpha-FADE_OUT);
-  if(phAlpha<=0&&!markerSeen&&phActive){
-    phActive=false;phGrid=null;phAgents=[];phCtx.clearRect(0,0,W,H);
-  }
-  if(phActive&&phGrid)phStep();
-  if(markerSeen&&!p3started){p3started=true;setTimeout(startPhase3,60000);}
+
+  stepParticles();
+
+  if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
 }
+
 function startPhase3(){
   phase=3;
-  const p3=document.getElementById('p3');
-  p3.classList.add('on');
+  document.getElementById('p3').classList.add('on');
   let n=10;
   const cd=document.getElementById('countdown');
   cd.textContent=n;
   const iv=setInterval(()=>{
     n--;
-    if(n>0){cd.textContent=n;}
-    else{clearInterval(iv);cd.style.display='none';document.getElementById('end-text').style.display='block';}
+    if(n>0){ cd.textContent=n; }
+    else{ clearInterval(iv); cd.style.display='none'; document.getElementById('end-text').style.display='block'; }
   },1000);
 }
+
+/* ── Weather ── */
 async function fetchWeather(){
   try{
     const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_radiation,vapour_pressure_deficit&hourly=soil_moisture_0_to_1cm&timezone=auto&forecast_days=1`;
-    const d=(await(await fetch(url)).json());
-    const c=d.current,h=new Date().getHours();
-    weather={temp:c.temperature_2m??14,humidity:c.relative_humidity_2m??65,radiation:c.direct_radiation??180,wind:c.wind_speed_10m??1.8,soilMoisture:d.hourly?.soil_moisture_0_to_1cm?.[h]??0.3,vpd:c.vapour_pressure_deficit??0.8};
+    const d=await(await fetch(url)).json();
+    const c=d.current, h=new Date().getHours();
+    weather={
+      temp:c.temperature_2m??14,
+      humidity:c.relative_humidity_2m??65,
+      radiation:c.direct_radiation??180,
+      wind:c.wind_speed_10m??1.8,
+      soilMoisture:d.hourly?.soil_moisture_0_to_1cm?.[h]??0.3,
+      vpd:c.vapour_pressure_deficit??0.8
+    };
     document.getElementById('v-s').textContent=weather.radiation.toFixed(0)+' W/m²';
     document.getElementById('v-h').textContent=weather.humidity.toFixed(0)+'%';
     document.getElementById('v-t').textContent=weather.temp.toFixed(1)+'°C';
@@ -265,23 +288,27 @@ async function fetchWeather(){
     document.getElementById('sci-sub').textContent=`vodni potencial ${psi} MPa · tok ${flow} ml/h · sevanje ${rad.toFixed(0)} W/m²`;
   }catch(e){}
 }
+
+/* ── Start ── */
 document.getElementById('btn-start').addEventListener('click',async()=>{
-  const p0=document.getElementById('p0');
-  p0.classList.add('out');
-  setTimeout(()=>p0.style.display='none',900);
-  const pw=document.getElementById('p-wait');
-  pw.classList.add('on');
+  document.getElementById('p0').classList.add('out');
+  setTimeout(()=>document.getElementById('p0').style.display='none',900);
+  document.getElementById('p-wait').classList.add('on');
+
   initAR();
+
   await new Promise(resolve=>{
     const iv=setInterval(()=>{
-      const cams=[...document.querySelectorAll('video')].filter(v=>v.id!=='ar-vessel'&&v.readyState>=2&&v.videoWidth>0);
+      const cams=[...document.querySelectorAll('video')].filter(v=>v.readyState>=2&&v.videoWidth>0);
       if(cams.length){clearInterval(iv);resolve();}
     },300);
     setTimeout(()=>{clearInterval(iv);resolve();},10000);
   });
-  pw.classList.remove('on');
+
+  document.getElementById('p-wait').classList.remove('on');
   await fetchWeather();
   setInterval(fetchWeather,60000);
+
   phase=2;
   document.getElementById('p2').classList.add('on');
   setTimeout(()=>document.getElementById('hud').classList.add('on'),600);
