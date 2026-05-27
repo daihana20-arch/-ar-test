@@ -22,152 +22,213 @@
   <script>
   AFRAME.registerComponent('lsystem-tree', {
     schema: {
-      duration:   { type: 'number',  default: 6000  }, // 全成長にかかるms
-      iterations: { type: 'number',  default: 5     }, // L-System展開回数
-      angle:      { type: 'number',  default: 25    }, // 分岐角度(度)
-      length:     { type: 'number',  default: 0.12  }, // 基本枝長(m)
-      thickness:  { type: 'number',  default: 1.2   }, // 線の太さ
-      color:      { type: 'color',   default: '#c8e6c9' }
+      duration:   { type: 'number', default: 8000 },
+      iterations: { type: 'number', default: 4    },
+      angle:      { type: 'number', default: 25   },
+      length:     { type: 'number', default: 0.24 },
+      color:      { type: 'color',  default: '#aaffcc' }
     },
 
     init: function () {
-      this.segments   = [];   // [{start, end, depth}]
-      this.lines      = [];   // THREE.Line objects
-      this.startTime  = null;
-      this.built      = false;
+      this.segments  = [];
+      this.meshes    = [];
+      this.startTime = null;
+      this.built     = false;
 
-      // L-Systemルール (Fraktal木)
-      const axiom   = 'X';
-      const rules   = { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' };
-
+      /* ── L-System 展開 ── */
+      const axiom = 'X';
+      const rules = { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' };
       const str = this._expand(axiom, rules, this.data.iterations);
-      this._buildSegments(str, this.data.angle, this.data.length);
-      this._createLines();
+
+      /* ── セグメント生成（3D タートル） ── */
+      this._buildSegments(str,
+        this.data.angle * Math.PI / 180,
+        this.data.length);
+
+      /* ── Three.js メッシュ生成 ── */
+      this._createMeshes();
     },
 
-    // L-System文字列展開
+    /* ─────────────────────────────── */
     _expand: function (axiom, rules, n) {
       let s = axiom;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n; i++)
         s = s.split('').map(c => rules[c] || c).join('');
-      }
       return s;
     },
 
-    // 文字列 → 枝セグメント配列
-    _buildSegments: function (str, angleDeg, baseLen) {
-      const DEG = Math.PI / 180;
-      const stack = [];
-      let x = 0, y = 0, z = 0;
-      let ax = 0, ay = 1, az = 0; // 上向き方向ベクトル
-      let pitch = 0; // XZ面の回転角
+    /* ─────────────────────────────── */
+    _buildSegments: function (str, angle, baseLen) {
+      const THREE = AFRAME.THREE;
+      const Y = new THREE.Vector3(0, 1, 0);
+      const Z = new THREE.Vector3(0, 0, 1);
+
+      let pos   = new THREE.Vector3();
+      let quat  = new THREE.Quaternion();
       let depth = 0;
-      const segs = this.segments;
+      let len   = baseLen;
+      let branchIdx = 0;   // 枝のインデックス（3方向に均等配置）
+      const stack = [];
+      const segs  = this.segments;
 
-      // シンプルな2Dタートル (Y軸が上、XZ面で回転)
-      let angle = 0; // 現在の向き(rad, XZ平面)
-      let tilt  = Math.PI / 2; // 仰角(rad) 初期は真上
-
-      const stateStack = [];
-      let cx = 0, cy = 0;
-      let dir = Math.PI / 2; // 真上 = 90deg
-
-      // 2Dタートル (XY平面、後でY→Y, X→X, Z=0)
       for (let i = 0; i < str.length; i++) {
         const c = str[i];
         if (c === 'F') {
-          const nx = cx + Math.cos(dir) * baseLen;
-          const ny = cy + Math.sin(dir) * baseLen;
-          segs.push({
-            x1: cx, y1: cy,
-            x2: nx, y2: ny,
-            order: segs.length
-          });
-          cx = nx; cy = ny;
+          const heading = Y.clone().applyQuaternion(quat).normalize();
+          const start   = pos.clone();
+          const end     = pos.clone().addScaledVector(heading, len);
+          segs.push({ start, end, depth, order: segs.length });
+          pos = end;
+
         } else if (c === '+') {
-          dir += angleDeg * DEG;
+          quat.multiply(
+            new THREE.Quaternion().setFromAxisAngle(Z, angle));
+
         } else if (c === '-') {
-          dir -= angleDeg * DEG;
+          quat.multiply(
+            new THREE.Quaternion().setFromAxisAngle(Z, -angle));
+
         } else if (c === '[') {
-          stateStack.push({ cx, cy, dir });
+          // 3方向（120°ずつ）に枝を広げて3Dらしく見せる
+          const spread = (branchIdx % 3) * (Math.PI * 2 / 3);
+          branchIdx++;
+          const spreadQ = new THREE.Quaternion()
+            .setFromAxisAngle(Y, spread);
+          const newQuat = spreadQ.clone().multiply(quat);
+          stack.push({ pos: pos.clone(), quat: quat.clone(), depth, len });
+          quat  = newQuat;
+          depth++;
+          len  *= 0.82;   // 深くなるほど短く
+
         } else if (c === ']') {
-          const s = stateStack.pop();
-          cx = s.cx; cy = s.cy; dir = s.dir;
+          const s = stack.pop();
+          pos = s.pos; quat = s.quat; depth = s.depth; len = s.len;
         }
-        // X は描画なし（展開のみ）
       }
     },
 
-    // THREE.Line を生成（初期は長さ0）
-    _createLines: function () {
-      const color = new THREE.Color(this.data.color);
-      const mat = new THREE.LineBasicMaterial({
-        color: color,
-        linewidth: this.data.thickness,
-        transparent: true,
-        opacity: 0.92
+    /* ─────────────────────────────── */
+    _createMeshes: function () {
+      const THREE  = AFRAME.THREE;
+      const color  = new THREE.Color(this.data.color);
+      const maxD   = this.segments.reduce((m, s) => Math.max(m, s.depth), 0) || 1;
+      const Y_AXIS = new THREE.Vector3(0, 1, 0);
+
+      this.meshes = this.segments.map(seg => {
+        const { start, end, depth } = seg;
+        const segLen = start.distanceTo(end);
+        if (segLen < 0.001) return null;
+
+        /* 深さに応じて太さを変える（幹→細枝） */
+        const t     = depth / maxD;
+        const rTop  = Math.max(0.002, 0.014 * (1 - t * 0.82));
+        const rBot  = rTop * 1.25;
+
+        /* ジオメトリ：底面を原点に置く */
+        const geo = new THREE.CylinderGeometry(rTop, rBot, segLen, 6, 1);
+        geo.translate(0, segLen / 2, 0);
+
+        /* MeshBasicMaterial で照明不要の発光ルック */
+        const mat = new THREE.MeshBasicMaterial({
+          color:       color,
+          transparent: true,
+          opacity:     0,
+        });
+
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(start);
+
+        /* start → end 方向にシリンダーを向ける */
+        const dir = end.clone().sub(start).normalize();
+        if (Math.abs(dir.dot(Y_AXIS)) < 0.9999)
+          mesh.quaternion.setFromUnitVectors(Y_AXIS, dir);
+
+        mesh.scale.y = 0.001;
+        this.el.object3D.add(mesh);
+        return { mesh, seg };
+      }).filter(Boolean);
+
+      /* 先端に輝点（スフィア）を追加 */
+      this._addTips(maxD);
+    },
+
+    /* 最深セグメントの先端に小さな球を追加 */
+    _addTips: function (maxD) {
+      const THREE  = AFRAME.THREE;
+      const white  = new THREE.Color('#ffffff');
+      const tipGeo = new THREE.SphereGeometry(0.006, 5, 5);
+      const tipMat = new THREE.MeshBasicMaterial({
+        color: white, transparent: true, opacity: 0
       });
 
-      this.lines = this.segments.map(seg => {
-        // 2D座標 → 3D (XY → XY、Z=0)
-        // マーカー上でYが高さ軸
-        const points = [
-          new THREE.Vector3(seg.x1, seg.y1, 0),
-          new THREE.Vector3(seg.x1, seg.y1, 0)  // 初期は長さ0
-        ];
-        const geo = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geo, mat);
-        this.el.object3D.add(line);
-        return { line, seg };
+      this.segments.forEach(seg => {
+        if (seg.depth < maxD - 1) return; // 最先端のみ
+        const m = new THREE.Mesh(tipGeo, tipMat.clone());
+        m.position.copy(seg.end);
+        this.el.object3D.add(m);
+        this.meshes.push({ mesh: m, seg, isTip: true });
       });
     },
 
-    tick: function (time, delta) {
+    /* ─────────────────────────────── */
+    tick: function (time) {
       if (!this.startTime) this.startTime = time;
-      if (this.built) return;
 
       const elapsed  = time - this.startTime;
-      const total    = this.segments.length;
-      const duration = this.data.duration;
+      const total    = this.meshes.length;
+      const progress = Math.min(elapsed / this.data.duration, 1.0);
+      const revealed = progress * total;
 
-      // 各枝が順番に伸びる
-      const progress = Math.min(elapsed / duration, 1.0);
-      const revealed = progress * total; // 何本目まで表示するか（小数含む）
+      if (progress < 1.0) {
+        /* ── 成長フェーズ ── */
+        for (let i = 0; i < this.meshes.length; i++) {
+          const { mesh, isTip } = this.meshes[i];
+          if (isTip) continue;  // 成長中は非表示
 
-      for (let i = 0; i < this.lines.length; i++) {
-        const { line, seg } = this.lines[i];
-        const geo = line.geometry;
-        const pos = geo.attributes.position;
-
-        if (i < Math.floor(revealed)) {
-          // 完全に表示
-          pos.setXYZ(0, seg.x1, seg.y1, 0);
-          pos.setXYZ(1, seg.x2, seg.y2, 0);
-        } else if (i < revealed) {
-          // この枝はアニメーション中（部分的に伸びる）
-          const t = revealed - Math.floor(revealed);
-          const ix = seg.x1 + (seg.x2 - seg.x1) * t;
-          const iy = seg.y1 + (seg.y2 - seg.y1) * t;
-          pos.setXYZ(0, seg.x1, seg.y1, 0);
-          pos.setXYZ(1, ix, iy, 0);
-        } else {
-          // まだ非表示
-          pos.setXYZ(0, seg.x1, seg.y1, 0);
-          pos.setXYZ(1, seg.x1, seg.y1, 0);
+          if (i < Math.floor(revealed)) {
+            if (mesh.scale.y < 0.999) {
+              mesh.scale.y = 1;
+              mesh.material.opacity = 0.92;
+              mesh.material.needsUpdate = true;
+            }
+          } else if (i < revealed) {
+            const t = revealed - Math.floor(revealed);
+            mesh.scale.y = Math.max(t, 0.001);
+            mesh.material.opacity = 0.92 * t;
+            mesh.material.needsUpdate = true;
+          }
         }
 
-        pos.needsUpdate = true;
-        geo.computeBoundingSphere();
-      }
+      } else {
+        /* ── パルスフェーズ ── */
+        if (!this.built) {
+          // 全セグメントを確定表示
+          this.meshes.forEach(({ mesh }) => {
+            mesh.scale.y = 1;
+            mesh.material.opacity = 0.92;
+            mesh.material.needsUpdate = true;
+          });
+          this.built = true;
+        }
 
-      if (progress >= 1.0) this.built = true;
+        // 幹と枝：緩やかなパルス
+        const pulse = Math.sin(time * 0.0014) * 0.2 + 0.75;
+        // 先端の球：速いチカチカ
+        const tipPulse = (Math.sin(time * 0.005) * 0.5 + 0.5) * 0.9;
+
+        this.meshes.forEach(({ mesh, isTip }) => {
+          mesh.material.opacity = isTip ? tipPulse : pulse;
+          mesh.material.needsUpdate = true;
+        });
+      }
     },
 
+    /* ─────────────────────────────── */
     remove: function () {
-      this.lines.forEach(({ line }) => {
-        this.el.object3D.remove(line);
-        line.geometry.dispose();
-        line.material.dispose();
+      this.meshes.forEach(({ mesh }) => {
+        this.el.object3D.remove(mesh);
+        mesh.geometry.dispose();
+        mesh.material.dispose();
       });
     }
   });
@@ -178,13 +239,13 @@
   <a-scene
     embedded
     arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false">
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true;">
     <a-marker type="pattern" url="pattern-pattern-Planet-A-square.patt">
-      <!-- L-System 木：根元から枝が6秒かけて育つ -->
+      <!-- L-System 3D 木：8秒で成長 → その後グロー点滅 -->
       <a-entity
-        lsystem-tree="duration: 6000; iterations: 5; angle: 25; length: 0.12; color: #c8e6c9"
-        position="0 0 0"
-        rotation="-90 0 0">
+        lsystem-tree="duration:8000; iterations:4; angle:25; length:0.24; color:#aaffcc"
+        position="0 0 0">
       </a-entity>
     </a-marker>
     <a-entity camera></a-entity>
