@@ -1,203 +1,294 @@
 <!DOCTYPE html>
-<html>
+<html lang="sl">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>AR — Planet Intelligence v4</title>
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    #info {
-      position: absolute; top: 10px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); color: white;
-      font-family: sans-serif; font-size: 13px;
-      padding: 8px 14px; border-radius: 16px;
-      z-index: 999; pointer-events: none;
-      white-space: nowrap;
-    }
-  </style>
-
-  <script>
-  AFRAME.registerComponent('lsystem-tree', {
-    schema: {
-      duration: { type: 'number', default: 6000  },
-      maxdepth: { type: 'number', default: 5     },
-      angle:    { type: 'number', default: 28    },
-      length:   { type: 'number', default: 0.30  },
-      color:    { type: 'color',  default: '#00ffcc' }
-    },
-
-    init: function () {
-      this.segments  = [];
-      this.meshes    = [];
-      this.startTime = null;
-      this.built     = false;
-
-      const THREE = AFRAME.THREE;
-
-      // 再帰的に3D木を構築
-      this._buildTree(
-        new THREE.Vector3(0, 0, 0),      // 根元（マーカー中心）
-        new THREE.Vector3(0, 1, 0),      // 上向きスタート
-        this.data.length,
-        0.045,                            // 幹の半径(m)
-        0
-      );
-
-      // 幹 → 太枝 → 細枝の順に成長させる
-      this.segments.sort((a, b) => a.depth - b.depth);
-
-      this._createMeshes();
-    },
-
-    /* ─── 再帰ツリー ─── */
-    _buildTree: function (start, dir, len, radius, depth) {
-      const THREE = AFRAME.THREE;
-      if (depth > this.data.maxdepth || len < 0.005) return;
-
-      const end = start.clone().addScaledVector(dir, len);
-      this.segments.push({
-        start:  start.clone(),
-        end:    end.clone(),
-        radius: radius,
-        depth:  depth
-      });
-
-      if (depth === this.data.maxdepth) return;
-
-      const bAngle   = this.data.angle * Math.PI / 180;
-      const branches = (depth === 0) ? 3 : 2;   // 幹は3方向、以降2方向
-
-      // dir に垂直なベクトルを求める
-      let up = new THREE.Vector3(0, 1, 0);
-      if (Math.abs(dir.dot(up)) > 0.9)
-        up = new THREE.Vector3(1, 0, 0);
-      const perp = new THREE.Vector3().crossVectors(dir, up).normalize();
-
-      for (let i = 0; i < branches; i++) {
-        // 黄金角オフセットで枝が重ならないように
-        const azimuth = (i / branches) * Math.PI * 2 + depth * 2.399;
-        const rotPerp = perp.clone().applyAxisAngle(dir, azimuth);
-        const newDir  = dir.clone().applyAxisAngle(rotPerp, bAngle).normalize();
-
-        this._buildTree(
-          end.clone(),
-          newDir,
-          len    * 0.70,
-          radius * 0.65,
-          depth + 1
-        );
-      }
-    },
-
-    /* ─── メッシュ生成 ─── */
-    _createMeshes: function () {
-      const THREE  = AFRAME.THREE;
-      const color  = new THREE.Color(this.data.color);
-      const Y_AXIS = new THREE.Vector3(0, 1, 0);
-
-      this.meshes = this.segments.map(seg => {
-        const { start, end, radius } = seg;
-        const segLen = start.distanceTo(end);
-        if (segLen < 0.001) return null;
-
-        // 底面を原点に置いた円柱
-        const geo = new THREE.CylinderGeometry(
-          radius * 0.70, radius, segLen, 8, 1
-        );
-        geo.translate(0, segLen / 2, 0);
-
-        // 発光ルック（ライト不要）
-        const mat = new THREE.MeshBasicMaterial({
-          color:       color,
-          transparent: true,
-          opacity:     0
-        });
-
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(start);
-
-        // start → end 方向に向ける
-        const dir = end.clone().sub(start).normalize();
-        if (Math.abs(dir.dot(Y_AXIS)) < 0.9999)
-          mesh.quaternion.setFromUnitVectors(Y_AXIS, dir);
-
-        mesh.scale.y = 0.001;
-        this.el.object3D.add(mesh);
-        return { mesh, seg };
-      }).filter(Boolean);
-    },
-
-    /* ─── アニメーション ─── */
-    tick: function (time) {
-      if (!this.startTime) this.startTime = time;
-
-      const elapsed  = time - this.startTime;
-      const total    = this.meshes.length;
-      const progress = Math.min(elapsed / this.data.duration, 1.0);
-      const revealed = progress * total;
-
-      if (progress < 1.0) {
-        /* 成長フェーズ：根元から先端へ順に伸びる */
-        for (let i = 0; i < total; i++) {
-          const { mesh } = this.meshes[i];
-          if (i < Math.floor(revealed)) {
-            if (mesh.scale.y < 0.999) {
-              mesh.scale.y = 1;
-              mesh.material.opacity = 0.95;
-              mesh.material.needsUpdate = true;
-            }
-          } else if (i < revealed) {
-            const t = revealed - Math.floor(revealed);
-            mesh.scale.y = Math.max(t, 0.001);
-            mesh.material.opacity = 0.95 * t;
-            mesh.material.needsUpdate = true;
-          }
-        }
-      } else {
-        /* パルスフェーズ：生長完了後にグロー点滅 */
-        if (!this.built) {
-          this.meshes.forEach(({ mesh }) => {
-            mesh.scale.y = 1;
-            mesh.material.opacity = 0.95;
-            mesh.material.needsUpdate = true;
-          });
-          this.built = true;
-        }
-        const pulse = Math.sin(time * 0.0012) * 0.20 + 0.78;
-        this.meshes.forEach(({ mesh }) => {
-          mesh.material.opacity = pulse;
-          mesh.material.needsUpdate = true;
-        });
-      }
-    },
-
-    remove: function () {
-      this.meshes.forEach(({ mesh }) => {
-        this.el.object3D.remove(mesh);
-        mesh.geometry.dispose();
-        mesh.material.dispose();
-      });
-    }
-  });
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Planet Intelligence — Akumulacija tišine</title>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#fff}
+.arjs-loader,.arjs-instructions,#arjs-instructions,
+body>div[style*="z-index: 999"],body>div[style*="z-index:999"],
+a-scene>div{display:none!important;pointer-events:none!important}
+.a-canvas{position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;z-index:1!important;pointer-events:none!important}
+a-scene{position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;z-index:1!important;
+  pointer-events:none!important;background:transparent!important}
+#p0{position:fixed;inset:0;z-index:50;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  transition:opacity 0.8s}
+#p0.out{opacity:0;pointer-events:none}
+.p0-label{font-size:9px;letter-spacing:0.45em;color:#333;text-transform:uppercase}
+.p0-title{font-size:clamp(30px,9vw,52px);font-family:Georgia,serif;font-style:italic;
+  text-align:center;line-height:1.2}
+.p0-sub{font-size:9px;letter-spacing:0.2em;color:#2a2a2a;margin-bottom:12px}
+#btn-start{background:none;border:1px solid #2a2a2a;color:#444;
+  font-family:'Courier New',monospace;font-size:9px;letter-spacing:0.4em;
+  text-transform:uppercase;padding:14px 38px;cursor:pointer;transition:all 0.4s}
+#btn-start:hover{border-color:#555;color:#fff}
+#p-wait{position:fixed;inset:0;z-index:40;background:#000;
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;letter-spacing:0.3em;color:rgba(255,255,255,0.3)}
+#p-wait.on{display:flex}
+#p2{position:fixed;inset:0;z-index:10;opacity:0;pointer-events:none;transition:opacity 1.5s}
+#p2.on{opacity:1}
+#ph-cv{position:fixed;inset:0;z-index:20;pointer-events:none}
+#hud{position:fixed;top:20px;left:18px;z-index:30;
+  font-size:10px;letter-spacing:0.1em;line-height:2;pointer-events:none;
+  opacity:0;transition:opacity 2s}
+#hud.on{opacity:1}
+.hv-s{color:#ffd060}.hv-h{color:#60c8ff}.hv-t{color:#ff7040}.hv-w{color:rgba(255,255,255,0.8)}
+.hl{color:rgba(255,255,255,0.28);margin-right:6px}
+#tree-id{position:fixed;top:20px;right:18px;z-index:30;text-align:right;
+  font-size:9px;letter-spacing:0.18em;color:rgba(255,255,255,0.25);
+  opacity:0;transition:opacity 2s;pointer-events:none}
+#tree-id.on{opacity:1}
+#sci{position:fixed;bottom:0;left:0;right:0;z-index:30;
+  padding:24px 28px 32px;pointer-events:none;
+  background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,transparent 100%);
+  opacity:0;transition:opacity 2.5s}
+#sci.on{opacity:1}
+#sci-main{font-size:clamp(16px,4.2vw,24px);font-family:Georgia,serif;font-style:italic;
+  color:rgba(255,255,255,0.9);line-height:1.5;margin-bottom:8px}
+#sci-sub{font-size:11px;letter-spacing:0.14em;color:#b8ff50}
+#p3{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,0);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  pointer-events:none;opacity:0;transition:opacity 1.2s}
+#p3.on{opacity:1;pointer-events:auto;background:rgba(0,0,0,0.85)}
+#countdown{font-size:clamp(80px,22vw,160px);font-family:Georgia,serif;
+  color:#fff;opacity:0.9;line-height:1}
+#end-text{display:none;text-align:center}
+#end-line1{font-size:clamp(22px,5.5vw,36px);font-family:Georgia,serif;font-style:italic;
+  color:#fff;margin-bottom:16px;line-height:1.4}
+#end-line2{font-size:11px;letter-spacing:0.25em;color:rgba(255,255,255,0.35)}
+</style>
 </head>
 <body>
-  <div id="info">マーカーにカメラを向けてください</div>
-  <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false"
-    renderer="logarithmicDepthBuffer: true;">
-    <a-marker type="pattern" url="pattern-pattern-Planet-A-square.patt">
-      <a-entity
-        lsystem-tree="duration:6000; maxdepth:5; angle:28; length:0.30; color:#00ffcc"
-        position="0 0 0">
-      </a-entity>
-    </a-marker>
-    <a-entity camera></a-entity>
-  </a-scene>
+<div id="p0">
+  <p class="p0-label">Mestni gozd Celje</p>
+  <p class="p0-title">Akumulacija<br>tišine</p>
+  <p class="p0-sub">Living Museum of Plant Intelligence</p>
+  <button id="btn-start">▶ &nbsp; ZAČNI</button>
+</div>
+<div id="p-wait">INITIALIZING CAMERA…</div>
+<div id="p2">
+  <canvas id="ph-cv"></canvas>
+  <div id="hud">
+    <div><span class="hl">SOLAR</span><span id="v-s" class="hv-s">—</span></div>
+    <div><span class="hl">HUMID</span><span id="v-h" class="hv-h">—</span></div>
+    <div><span class="hl">TEMP</span><span id="v-t" class="hv-t">—</span></div>
+    <div><span class="hl">WIND</span><span id="v-w" class="hv-w">—</span></div>
+  </div>
+  <div id="tree-id">TREE_01<br>Picea abies</div>
+  <div id="sci">
+    <div id="sci-main"></div>
+    <div id="sci-sub"></div>
+  </div>
+</div>
+<div id="p3">
+  <div id="countdown">10</div>
+  <div id="end-text">
+    <div id="end-line1">Pospravi telefon,<br>objami drevo.</div>
+    <div id="end-line2">Put down your phone. Hug the tree.</div>
+  </div>
+</div>
+<script>
+const LAT=46.227222,LON=15.259167;
+let W=window.innerWidth,H=window.innerHeight;
+let markerSeen=false,phActive=false,phAlpha=0,phase=0;
+let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
+const phCv=document.getElementById('ph-cv');
+const phCtx=phCv.getContext('2d');
+function resize(){W=phCv.width=window.innerWidth;H=phCv.height=window.innerHeight;}
+resize();window.addEventListener('resize',resize);
+let phGrid=null,phW=0,phH=0,phImg=null,phPx=null,phAgents=[];
+const FADE_IN=0.004,FADE_OUT=0.018;
+function phParams(){
+  const h=weather.humidity,s=weather.radiation,w=weather.wind,sm=weather.soilMoisture,v=weather.vpd;
+  return{n:Math.round(300+(h/100)*900),sd:8+(s/800)*20,evap:0.003+((1-sm)*0.02),speed:1.2+(w/20)*2,t:Math.min(v/3,1)};
+}
+function phInit(){
+  phW=W;phH=H;
+  phGrid=new Float32Array(phW*phH);
+  phImg=phCtx.createImageData(phW,phH);
+  phPx=phImg.data;
+  const p=phParams(),cx=W/2,cy=H/2,rad=Math.min(W,H)*0.44;
+  phAgents=[];
+  for(let i=0;i<p.n;i++){
+    const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*rad;
+    const x=cx+r*Math.cos(a),y=cy+r*Math.sin(a);
+    const ang=Math.atan2(cy-y,cx-x),sp=p.speed*(0.7+Math.random()*0.6);
+    phAgents.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp});
+  }
+}
+function phStep(){
+  if(!phGrid)return;
+  const p=phParams(),cx=W/2,cy=H/2,rad=Math.min(W,H)*0.44,rad2=rad*rad,SA=Math.PI/5;
+  for(const ag of phAgents){
+    const ang=Math.atan2(ag.vy,ag.vx);
+    function sense(off){
+      const a=ang+off,sx=Math.round(ag.x+Math.cos(a)*p.sd),sy=Math.round(ag.y+Math.sin(a)*p.sd);
+      if(sx<0||sx>=phW||sy<0||sy>=phH)return 0;
+      return phGrid[sy*phW+sx];
+    }
+    const fwd=sense(0),lft=sense(-SA),rgt=sense(SA);
+    let na=ang;
+    if(fwd>lft&&fwd>rgt){}
+    else if(lft>rgt)na=ang-SA*0.6;
+    else if(rgt>lft)na=ang+SA*0.6;
+    else na=ang+(Math.random()<.5?1:-1)*SA*0.3;
+    const sp=p.speed*(0.8+Math.random()*0.4);
+    ag.vx=Math.cos(na)*sp;ag.vy=Math.sin(na)*sp;
+    ag.x+=ag.vx;ag.y+=ag.vy;
+    const dx=ag.x-cx,dy=ag.y-cy;
+    if(dx*dx+dy*dy>rad2){
+      const a2=Math.random()*Math.PI*2,r2=Math.sqrt(Math.random())*rad;
+      ag.x=cx+r2*Math.cos(a2);ag.y=cy+r2*Math.sin(a2);
+      const ang2=Math.atan2(cy-ag.y,cx-ag.x);
+      ag.vx=Math.cos(ang2)*sp;ag.vy=Math.sin(ang2)*sp;
+    } else {
+      const ix=Math.round(ag.x),iy=Math.round(ag.y);
+      if(ix>=0&&ix<phW&&iy>=0&&iy<phH)phGrid[iy*phW+ix]=Math.min(phGrid[iy*phW+ix]+1,255);
+    }
+  }
+  const t=p.t;
+  const cA=[Math.round(t*255),Math.round(200-t*170),Math.round(255-t*200)];
+  const cB=[Math.round(80+t*100),Math.round(255-t*230),Math.round(130-t*120)];
+  const ev=p.evap,ga=phAlpha;
+  for(let i=0;i<phW*phH;i++){
+    const v=phGrid[i];
+    if(v>0)phGrid[i]=Math.max(0,v-ev*v-0.005);
+    const vi=Math.min(255,v*1.8)|0,px=i*4;
+    phPx[px]=(cA[0]*vi+cB[0]*(255-vi))>>8;
+    phPx[px+1]=(cA[1]*vi+cB[1]*(255-vi))>>8;
+    phPx[px+2]=(cA[2]*vi+cB[2]*(255-vi))>>8;
+    phPx[px+3]=vi>4?Math.round(vi*ga):0;
+  }
+  phCtx.clearRect(0,0,W,H);
+  phCtx.putImageData(phImg,0,0);
+}
+let arMarkerEl=null;
+function initAR(){
+  new MutationObserver(()=>{
+    document.querySelectorAll('body>div').forEach(d=>{
+      if(d.id&&d.id!=='arjs-instructions')return;
+      const st=window.getComputedStyle(d);
+      if(st.zIndex>90||st.backgroundColor!=='rgba(0, 0, 0, 0)')d.style.display='none';
+    });
+  }).observe(document.body,{childList:true,subtree:true});
+  const scene=document.createElement('a-scene');
+  scene.setAttribute('embedded','');
+  scene.setAttribute('arjs','sourceType:webcam;debugUIEnabled:false;uiScanning:no;uiError:no;uiLoading:no;patternRatio:0.5;');
+  scene.setAttribute('renderer','alpha:true;antialias:false;');
+  scene.setAttribute('vr-mode-ui','enabled:false');
+  scene.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2;pointer-events:none;background:transparent;';
+  const assets=document.createElement('a-assets');
+  const vid=document.createElement('video');
+  vid.id='ar-vessel';vid.src='vessel.mp4';
+  vid.setAttribute('loop','');vid.setAttribute('crossorigin','anonymous');
+  vid.setAttribute('playsinline','');vid.muted=true;
+  assets.appendChild(vid);scene.appendChild(assets);
+  const marker=document.createElement('a-marker');
+  marker.setAttribute('preset','hiro');
+  arMarkerEl=marker;
+  const plane=document.createElement('a-video');
+  plane.setAttribute('src','#ar-vessel');
+  plane.setAttribute('width','2.2');plane.setAttribute('height','1.4');
+  plane.setAttribute('rotation','-90 0 0');
+  plane.setAttribute('visible','false');
+  marker.appendChild(plane);
+  marker.addEventListener('markerFound',()=>{
+    markerSeen=true;
+    vid.play().catch(()=>{});
+    plane.setAttribute('visible','true');
+    if(!phActive){phActive=true;phInit();}
+  });
+  marker.addEventListener('markerLost',()=>{
+    markerSeen=false;
+    plane.setAttribute('visible','false');
+  });
+  scene.appendChild(marker);
+  const cam=document.createElement('a-entity');
+  cam.setAttribute('camera','');
+  scene.appendChild(cam);
+  document.body.appendChild(scene);
+}
+let p3started=false;
+function arLoop(){
+  requestAnimationFrame(arLoop);
+  if(phase<2)return;
+  if(arMarkerEl&&arMarkerEl.object3D){
+    const now=arMarkerEl.object3D.visible;
+    if(now&&!markerSeen){markerSeen=true;if(!phActive){phActive=true;phInit();}}
+    else if(!now&&markerSeen)markerSeen=false;
+  }
+  if(markerSeen&&phAlpha<1)phAlpha=Math.min(1,phAlpha+FADE_IN);
+  if(!markerSeen&&phAlpha>0)phAlpha=Math.max(0,phAlpha-FADE_OUT);
+  if(phAlpha<=0&&!markerSeen&&phActive){
+    phActive=false;phGrid=null;phAgents=[];phCtx.clearRect(0,0,W,H);
+  }
+  if(phActive&&phGrid)phStep();
+  if(markerSeen&&!p3started){p3started=true;setTimeout(startPhase3,60000);}
+}
+function startPhase3(){
+  phase=3;
+  const p3=document.getElementById('p3');
+  p3.classList.add('on');
+  let n=10;
+  const cd=document.getElementById('countdown');
+  cd.textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n>0){cd.textContent=n;}
+    else{clearInterval(iv);cd.style.display='none';document.getElementById('end-text').style.display='block';}
+  },1000);
+}
+async function fetchWeather(){
+  try{
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_radiation,vapour_pressure_deficit&hourly=soil_moisture_0_to_1cm&timezone=auto&forecast_days=1`;
+    const d=(await(await fetch(url)).json());
+    const c=d.current,h=new Date().getHours();
+    weather={temp:c.temperature_2m??14,humidity:c.relative_humidity_2m??65,radiation:c.direct_radiation??180,wind:c.wind_speed_10m??1.8,soilMoisture:d.hourly?.soil_moisture_0_to_1cm?.[h]??0.3,vpd:c.vapour_pressure_deficit??0.8};
+    document.getElementById('v-s').textContent=weather.radiation.toFixed(0)+' W/m²';
+    document.getElementById('v-h').textContent=weather.humidity.toFixed(0)+'%';
+    document.getElementById('v-t').textContent=weather.temp.toFixed(1)+'°C';
+    document.getElementById('v-w').textContent=weather.wind.toFixed(1)+' m/s';
+    const rad=weather.radiation,hum=weather.humidity,tmp=weather.temp;
+    const hl=Math.max(0,Math.min(10,(rad/500)*10));
+    const co2=((6+(rad/500)*5+(hum/100)*2)*hl*0.7).toFixed(1);
+    const psi=((-0.8-(tmp/30)*0.6-(1-hum/100)*0.8)).toFixed(2);
+    const flow=(15+(rad/500)*35+(hum/100)*20).toFixed(0);
+    document.getElementById('sci-main').textContent=`danes je to drevo absorbiralo ${co2} kg CO₂`;
+    document.getElementById('sci-sub').textContent=`vodni potencial ${psi} MPa · tok ${flow} ml/h · sevanje ${rad.toFixed(0)} W/m²`;
+  }catch(e){}
+}
+document.getElementById('btn-start').addEventListener('click',async()=>{
+  const p0=document.getElementById('p0');
+  p0.classList.add('out');
+  setTimeout(()=>p0.style.display='none',900);
+  const pw=document.getElementById('p-wait');
+  pw.classList.add('on');
+  initAR();
+  await new Promise(resolve=>{
+    const iv=setInterval(()=>{
+      const cams=[...document.querySelectorAll('video')].filter(v=>v.id!=='ar-vessel'&&v.readyState>=2&&v.videoWidth>0);
+      if(cams.length){clearInterval(iv);resolve();}
+    },300);
+    setTimeout(()=>{clearInterval(iv);resolve();},10000);
+  });
+  pw.classList.remove('on');
+  await fetchWeather();
+  setInterval(fetchWeather,60000);
+  phase=2;
+  document.getElementById('p2').classList.add('on');
+  setTimeout(()=>document.getElementById('hud').classList.add('on'),600);
+  setTimeout(()=>document.getElementById('tree-id').classList.add('on'),900);
+  setTimeout(()=>document.getElementById('sci').classList.add('on'),1800);
+  arLoop();
+});
+</script>
 </body>
 </html>
