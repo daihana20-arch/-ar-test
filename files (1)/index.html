@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>AR Test — Planet Intelligence</title>
+  <title>AR — Planet Intelligence v4</title>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
   <style>
@@ -22,11 +22,11 @@
   <script>
   AFRAME.registerComponent('lsystem-tree', {
     schema: {
-      duration:   { type: 'number', default: 8000 },
-      iterations: { type: 'number', default: 4    },
-      angle:      { type: 'number', default: 25   },
-      length:     { type: 'number', default: 0.24 },
-      color:      { type: 'color',  default: '#aaffcc' }
+      duration: { type: 'number', default: 6000  },
+      maxdepth: { type: 'number', default: 5     },
+      angle:    { type: 'number', default: 28    },
+      length:   { type: 'number', default: 0.30  },
+      color:    { type: 'color',  default: '#00ffcc' }
     },
 
     init: function () {
@@ -35,110 +35,91 @@
       this.startTime = null;
       this.built     = false;
 
-      /* ── L-System 展開 ── */
-      const axiom = 'X';
-      const rules = { X: 'F+[[X]-X]-F[-FX]+X', F: 'FF' };
-      const str = this._expand(axiom, rules, this.data.iterations);
+      const THREE = AFRAME.THREE;
 
-      /* ── セグメント生成（3D タートル） ── */
-      this._buildSegments(str,
-        this.data.angle * Math.PI / 180,
-        this.data.length);
+      // 再帰的に3D木を構築
+      this._buildTree(
+        new THREE.Vector3(0, 0, 0),      // 根元（マーカー中心）
+        new THREE.Vector3(0, 1, 0),      // 上向きスタート
+        this.data.length,
+        0.045,                            // 幹の半径(m)
+        0
+      );
 
-      /* ── Three.js メッシュ生成 ── */
+      // 幹 → 太枝 → 細枝の順に成長させる
+      this.segments.sort((a, b) => a.depth - b.depth);
+
       this._createMeshes();
     },
 
-    /* ─────────────────────────────── */
-    _expand: function (axiom, rules, n) {
-      let s = axiom;
-      for (let i = 0; i < n; i++)
-        s = s.split('').map(c => rules[c] || c).join('');
-      return s;
-    },
-
-    /* ─────────────────────────────── */
-    _buildSegments: function (str, angle, baseLen) {
+    /* ─── 再帰ツリー ─── */
+    _buildTree: function (start, dir, len, radius, depth) {
       const THREE = AFRAME.THREE;
-      const Y = new THREE.Vector3(0, 1, 0);
-      const Z = new THREE.Vector3(0, 0, 1);
+      if (depth > this.data.maxdepth || len < 0.005) return;
 
-      let pos   = new THREE.Vector3();
-      let quat  = new THREE.Quaternion();
-      let depth = 0;
-      let len   = baseLen;
-      let branchIdx = 0;   // 枝のインデックス（3方向に均等配置）
-      const stack = [];
-      const segs  = this.segments;
+      const end = start.clone().addScaledVector(dir, len);
+      this.segments.push({
+        start:  start.clone(),
+        end:    end.clone(),
+        radius: radius,
+        depth:  depth
+      });
 
-      for (let i = 0; i < str.length; i++) {
-        const c = str[i];
-        if (c === 'F') {
-          const heading = Y.clone().applyQuaternion(quat).normalize();
-          const start   = pos.clone();
-          const end     = pos.clone().addScaledVector(heading, len);
-          segs.push({ start, end, depth, order: segs.length });
-          pos = end;
+      if (depth === this.data.maxdepth) return;
 
-        } else if (c === '+') {
-          quat.multiply(
-            new THREE.Quaternion().setFromAxisAngle(Z, angle));
+      const bAngle   = this.data.angle * Math.PI / 180;
+      const branches = (depth === 0) ? 3 : 2;   // 幹は3方向、以降2方向
 
-        } else if (c === '-') {
-          quat.multiply(
-            new THREE.Quaternion().setFromAxisAngle(Z, -angle));
+      // dir に垂直なベクトルを求める
+      let up = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(dir.dot(up)) > 0.9)
+        up = new THREE.Vector3(1, 0, 0);
+      const perp = new THREE.Vector3().crossVectors(dir, up).normalize();
 
-        } else if (c === '[') {
-          // 3方向（120°ずつ）に枝を広げて3Dらしく見せる
-          const spread = (branchIdx % 3) * (Math.PI * 2 / 3);
-          branchIdx++;
-          const spreadQ = new THREE.Quaternion()
-            .setFromAxisAngle(Y, spread);
-          const newQuat = spreadQ.clone().multiply(quat);
-          stack.push({ pos: pos.clone(), quat: quat.clone(), depth, len });
-          quat  = newQuat;
-          depth++;
-          len  *= 0.82;   // 深くなるほど短く
+      for (let i = 0; i < branches; i++) {
+        // 黄金角オフセットで枝が重ならないように
+        const azimuth = (i / branches) * Math.PI * 2 + depth * 2.399;
+        const rotPerp = perp.clone().applyAxisAngle(dir, azimuth);
+        const newDir  = dir.clone().applyAxisAngle(rotPerp, bAngle).normalize();
 
-        } else if (c === ']') {
-          const s = stack.pop();
-          pos = s.pos; quat = s.quat; depth = s.depth; len = s.len;
-        }
+        this._buildTree(
+          end.clone(),
+          newDir,
+          len    * 0.70,
+          radius * 0.65,
+          depth + 1
+        );
       }
     },
 
-    /* ─────────────────────────────── */
+    /* ─── メッシュ生成 ─── */
     _createMeshes: function () {
       const THREE  = AFRAME.THREE;
       const color  = new THREE.Color(this.data.color);
-      const maxD   = this.segments.reduce((m, s) => Math.max(m, s.depth), 0) || 1;
       const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
       this.meshes = this.segments.map(seg => {
-        const { start, end, depth } = seg;
+        const { start, end, radius } = seg;
         const segLen = start.distanceTo(end);
         if (segLen < 0.001) return null;
 
-        /* 深さに応じて太さを変える（幹→細枝） */
-        const t     = depth / maxD;
-        const rTop  = Math.max(0.002, 0.014 * (1 - t * 0.82));
-        const rBot  = rTop * 1.25;
-
-        /* ジオメトリ：底面を原点に置く */
-        const geo = new THREE.CylinderGeometry(rTop, rBot, segLen, 6, 1);
+        // 底面を原点に置いた円柱
+        const geo = new THREE.CylinderGeometry(
+          radius * 0.70, radius, segLen, 8, 1
+        );
         geo.translate(0, segLen / 2, 0);
 
-        /* MeshBasicMaterial で照明不要の発光ルック */
+        // 発光ルック（ライト不要）
         const mat = new THREE.MeshBasicMaterial({
           color:       color,
           transparent: true,
-          opacity:     0,
+          opacity:     0
         });
 
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.copy(start);
 
-        /* start → end 方向にシリンダーを向ける */
+        // start → end 方向に向ける
         const dir = end.clone().sub(start).normalize();
         if (Math.abs(dir.dot(Y_AXIS)) < 0.9999)
           mesh.quaternion.setFromUnitVectors(Y_AXIS, dir);
@@ -147,30 +128,9 @@
         this.el.object3D.add(mesh);
         return { mesh, seg };
       }).filter(Boolean);
-
-      /* 先端に輝点（スフィア）を追加 */
-      this._addTips(maxD);
     },
 
-    /* 最深セグメントの先端に小さな球を追加 */
-    _addTips: function (maxD) {
-      const THREE  = AFRAME.THREE;
-      const white  = new THREE.Color('#ffffff');
-      const tipGeo = new THREE.SphereGeometry(0.006, 5, 5);
-      const tipMat = new THREE.MeshBasicMaterial({
-        color: white, transparent: true, opacity: 0
-      });
-
-      this.segments.forEach(seg => {
-        if (seg.depth < maxD - 1) return; // 最先端のみ
-        const m = new THREE.Mesh(tipGeo, tipMat.clone());
-        m.position.copy(seg.end);
-        this.el.object3D.add(m);
-        this.meshes.push({ mesh: m, seg, isTip: true });
-      });
-    },
-
-    /* ─────────────────────────────── */
+    /* ─── アニメーション ─── */
     tick: function (time) {
       if (!this.startTime) this.startTime = time;
 
@@ -180,50 +140,40 @@
       const revealed = progress * total;
 
       if (progress < 1.0) {
-        /* ── 成長フェーズ ── */
-        for (let i = 0; i < this.meshes.length; i++) {
-          const { mesh, isTip } = this.meshes[i];
-          if (isTip) continue;  // 成長中は非表示
-
+        /* 成長フェーズ：根元から先端へ順に伸びる */
+        for (let i = 0; i < total; i++) {
+          const { mesh } = this.meshes[i];
           if (i < Math.floor(revealed)) {
             if (mesh.scale.y < 0.999) {
               mesh.scale.y = 1;
-              mesh.material.opacity = 0.92;
+              mesh.material.opacity = 0.95;
               mesh.material.needsUpdate = true;
             }
           } else if (i < revealed) {
             const t = revealed - Math.floor(revealed);
             mesh.scale.y = Math.max(t, 0.001);
-            mesh.material.opacity = 0.92 * t;
+            mesh.material.opacity = 0.95 * t;
             mesh.material.needsUpdate = true;
           }
         }
-
       } else {
-        /* ── パルスフェーズ ── */
+        /* パルスフェーズ：生長完了後にグロー点滅 */
         if (!this.built) {
-          // 全セグメントを確定表示
           this.meshes.forEach(({ mesh }) => {
             mesh.scale.y = 1;
-            mesh.material.opacity = 0.92;
+            mesh.material.opacity = 0.95;
             mesh.material.needsUpdate = true;
           });
           this.built = true;
         }
-
-        // 幹と枝：緩やかなパルス
-        const pulse = Math.sin(time * 0.0014) * 0.2 + 0.75;
-        // 先端の球：速いチカチカ
-        const tipPulse = (Math.sin(time * 0.005) * 0.5 + 0.5) * 0.9;
-
-        this.meshes.forEach(({ mesh, isTip }) => {
-          mesh.material.opacity = isTip ? tipPulse : pulse;
+        const pulse = Math.sin(time * 0.0012) * 0.20 + 0.78;
+        this.meshes.forEach(({ mesh }) => {
+          mesh.material.opacity = pulse;
           mesh.material.needsUpdate = true;
         });
       }
     },
 
-    /* ─────────────────────────────── */
     remove: function () {
       this.meshes.forEach(({ mesh }) => {
         this.el.object3D.remove(mesh);
@@ -242,9 +192,8 @@
     vr-mode-ui="enabled: false"
     renderer="logarithmicDepthBuffer: true;">
     <a-marker type="pattern" url="pattern-pattern-Planet-A-square.patt">
-      <!-- L-System 3D 木：8秒で成長 → その後グロー点滅 -->
       <a-entity
-        lsystem-tree="duration:8000; iterations:4; angle:25; length:0.24; color:#aaffcc"
+        lsystem-tree="duration:6000; maxdepth:5; angle:28; length:0.30; color:#00ffcc"
         position="0 0 0">
       </a-entity>
     </a-marker>
