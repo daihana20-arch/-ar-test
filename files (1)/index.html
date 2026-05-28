@@ -96,6 +96,29 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 #end-line1{font-size:clamp(22px,5.5vw,36px);font-family:Georgia,serif;font-style:italic;
   color:#fff;margin-bottom:16px;line-height:1.4}
 #end-line2{font-size:11px;letter-spacing:0.25em;color:rgba(255,255,255,0.35)}
+/* ── Card System ── */
+#cs-overlay{position:fixed;inset:0;z-index:35;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;opacity:0;transition:opacity 0.6s}
+#cs-overlay.on{opacity:1;pointer-events:auto}
+#cs-card{position:relative;width:90vw;max-width:340px;height:80vh;
+  background:rgba(0,8,0,0.85);overflow:hidden}
+#cs-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
+#cs-content{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;
+  padding:24px 20px;overflow:hidden}
+.cs-label{font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;
+  color:rgba(0,255,80,0.35);margin-bottom:12px;text-transform:uppercase}
+.cs-title{font-family:Georgia,serif;font-style:italic;font-size:30px;
+  color:#fff;line-height:1.2;margin-bottom:6px}
+.cs-sub{font-family:Georgia,serif;font-style:italic;font-size:15px;
+  color:rgba(255,255,255,0.45);margin-bottom:20px}
+.cs-div{width:40px;height:1px;background:rgba(0,255,80,0.3);margin-bottom:18px}
+.cs-data{font-family:'Courier New',monospace;font-size:13px;
+  color:rgba(0,255,80,0.75);line-height:1.8;letter-spacing:0.04em}
+.cs-text{font-family:Georgia,serif;font-size:14px;
+  color:rgba(255,255,255,0.6);line-height:1.7;margin-top:14px}
+.cs-small{font-family:'Courier New',monospace;font-size:10px;
+  color:rgba(0,255,80,0.35);margin-top:12px;letter-spacing:0.1em}
 </style>
 </head>
 <body>
@@ -150,6 +173,13 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   <div id="end-text">
     <div id="end-line1">Pospravi telefon,<br>objami drevo.</div>
     <div id="end-line2">Put down your phone. Hug the tree.</div>
+  </div>
+</div>
+
+<div id="cs-overlay">
+  <div id="cs-card">
+    <canvas id="cs-canvas"></canvas>
+    <div id="cs-content"></div>
   </div>
 </div>
 
@@ -534,10 +564,183 @@ async function fetchWeather(){
   }catch(e){}
 }
 
+/* ── Card System ── */
+const CS_DATA=[
+  {label:'TREE_01 · MESTNI GOZD CELJE',title:'Smreka',sub:'Picea abies',
+   data:['VIŠINA ~28m','STAROST ~80 let','OBSEG 1.8m']},
+  {label:'SKRIVNOST',title:'9.550 let',
+   text:'V Švedski živi smreka, katere koreninski sistem je star 9.550 let. Deblo odmre vsakih 600 let — korenine pa preživijo in poženejo novo drevo. To drevo pred tabo ima enako sposobnost.',
+   small:'Old Tjikko · Fulufjället, Sverige'},
+  {label:'ZVOK',title:'Stradivari',
+   text:'Slavne violine Stradivari so izdelane iz smrekovega lesa. Letnice, ki jih ustvari hladno podnebje, določijo resonanco tona. Les tega drevesa nosi enako strukturo.'},
+  {label:'DANES · OPEN-METEO',title:'Danes je to drevo...',live:true},
+  {label:'MESTNI GOZD 1883',title:'Čuvar zraka',
+   text:'Mestni gozd je občina kupila med letoma 1883 in 1892. Picea abies je občutljiva na onesnažen zrak — dejstvo, da to drevo tu zdravo stoji, pomeni, da je zrak v Celju čist. Savinjska vlaga ustreza točno tej vrsti.'}
+];
+let csIdx=0,csOn=false,csRaf=null,csAscIv=null,csStill=null,csT0=null;
+const CS_DUR=10000;
+let csCW=0,csCH=0;
+const CS_SET='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*{}[]<>/|;:,.~`=+-_';
+let csGrid=[];
+const CS_GW=8,CS_GH=13;
+
+function csInitMotion(){
+  if(typeof DeviceMotionEvent!=='undefined'&&
+     typeof DeviceMotionEvent.requestPermission==='function'){
+    DeviceMotionEvent.requestPermission()
+      .then(r=>{if(r==='granted')csMotion();})
+      .catch(()=>csMotion());
+  }else{csMotion();}
+}
+
+function csMotion(){
+  let last={x:0,y:0,z:0};
+  window.addEventListener('devicemotion',e=>{
+    if(phase<2||!markerSeen){csStill=null;return;}
+    const a=e.accelerationIncludingGravity||{};
+    const dx=(a.x||0)-last.x,dy=(a.y||0)-last.y,dz=(a.z||0)-last.z;
+    const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    last={x:a.x||0,y:a.y||0,z:a.z||0};
+    if(d<0.3){
+      if(!csStill)csStill=performance.now();
+      else if(!csOn&&performance.now()-csStill>=2000)csStart();
+    }else{csStill=null;if(csOn)csCancel();}
+  });
+}
+
+function csStart(){
+  csOn=true;
+  csCW=Math.min(window.innerWidth*0.9,340);
+  csCH=window.innerHeight*0.8;
+  const cv=document.getElementById('cs-canvas');
+  cv.width=Math.round(csCW);cv.height=Math.round(csCH);
+  csGrid=[];csT0=null;
+  csBuild(csIdx);
+  document.getElementById('cs-overlay').classList.add('on');
+  csAscIv=setInterval(csTick,150);
+  csRaf=requestAnimationFrame(csBeam);
+}
+
+function csCancel(){
+  csOn=false;
+  if(csRaf){cancelAnimationFrame(csRaf);csRaf=null;}
+  if(csAscIv){clearInterval(csAscIv);csAscIv=null;}
+  document.getElementById('cs-overlay').classList.remove('on');
+  csStill=null;
+}
+
+function csBuild(i){
+  const c=CS_DATA[i];
+  let h=`<div class="cs-label">${c.label}</div>`;
+  h+=`<div class="cs-title">${c.title}</div>`;
+  if(c.sub)h+=`<div class="cs-sub">${c.sub}</div>`;
+  h+=`<div class="cs-div"></div>`;
+  if(c.data)c.data.forEach(d=>h+=`<div class="cs-data">${d}</div>`);
+  if(c.live){
+    const rad=weather.radiation||0,co2=(rad*0.0015).toFixed(2);
+    h+=`<div class="cs-data">SONČNO SEVANJE: ${rad.toFixed(0)} W/m²</div>`;
+    h+=`<div class="cs-data">VLAŽNOST: ${(weather.humidity||0).toFixed(0)} %</div>`;
+    h+=`<div class="cs-data">TEMP: ${(weather.temp||0).toFixed(1)} °C</div>`;
+    h+=`<div class="cs-data">CO₂ danes: ${co2} kg</div>`;
+  }
+  if(c.text)h+=`<div class="cs-text">${c.text}</div>`;
+  if(c.small)h+=`<div class="cs-small">${c.small}</div>`;
+  const el=document.getElementById('cs-content');
+  el.innerHTML=h;el.style.clipPath='inset(0 0 100% 0)';
+}
+
+function csTick(){
+  const cols=Math.floor(csCW/CS_GW),rows=Math.floor(csCH/CS_GH);
+  const by=csT0?Math.min((performance.now()-csT0)/CS_DUR,1)*csCH:0;
+  const br=Math.ceil(by/CS_GH);
+  if(!csGrid.length){
+    for(let r=0;r<rows;r++){
+      csGrid[r]=[];
+      for(let c=0;c<cols;c++)csGrid[r][c]=CS_SET[Math.random()*CS_SET.length|0];
+    }
+  }else{
+    for(let r=br;r<rows;r++)
+      for(let c=0;c<cols;c++)
+        if(Math.random()<0.25)csGrid[r][c]=CS_SET[Math.random()*CS_SET.length|0];
+  }
+}
+
+function csBeam(now){
+  if(!csT0)csT0=now;
+  const prog=Math.min((now-csT0)/CS_DUR,1);
+  const y=prog*csCH;
+  const cv=document.getElementById('cs-canvas');
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,csCW,csCH);
+
+  /* ASCII below beam */
+  const cols=Math.floor(csCW/CS_GW),rows=Math.floor(csCH/CS_GH);
+  const sr=Math.ceil(y/CS_GH);
+  ctx.font=`${CS_GH}px 'Courier New',monospace`;
+  ctx.fillStyle='rgba(160,255,160,0.6)';
+  for(let r=sr;r<rows;r++){
+    if(!csGrid[r])continue;
+    for(let c2=0;c2<cols;c2++)
+      ctx.fillText(csGrid[r][c2]||' ',c2*CS_GW,(r+1)*CS_GH);
+  }
+
+  /* Purple halo glow layers */
+  [[60,0.05],[32,0.10],[14,0.18],[5,0.35]].forEach(([bw,a])=>{
+    const hh=bw*1.2;
+    const g=ctx.createLinearGradient(0,y-hh,0,y+hh);
+    g.addColorStop(0,'transparent');
+    g.addColorStop(0.5,`rgba(140,60,255,${a})`);
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.fillRect(0,y-hh,csCW,hh*2);
+  });
+  /* White core 1px */
+  ctx.fillStyle='rgba(255,255,255,0.92)';
+  ctx.fillRect(0,y-0.5,csCW,1);
+
+  /* 80 beam particles */
+  for(let i=0;i<80;i++){
+    const px=Math.random()*csCW;
+    const py=y+Math.sin(i*1.9+now*0.003)*7;
+    const white=Math.random()<0.7;
+    ctx.beginPath();ctx.arc(px,py,white?1:1.5,0,Math.PI*2);
+    ctx.fillStyle=white?'rgba(255,255,255,0.9)':'rgba(180,100,255,0.85)';
+    ctx.fill();
+    if(Math.random()<0.22){
+      const ang=Math.random()*Math.PI*2,dist=Math.random()*22;
+      const sx=px+Math.cos(ang)*dist,sy=py+Math.sin(ang)*dist;
+      if(sx>=0&&sx<=csCW&&sy>=0&&sy<=csCH){
+        ctx.beginPath();ctx.arc(sx,sy,0.5,0,Math.PI*2);
+        ctx.fillStyle=white?'rgba(255,255,255,0.35)':'rgba(180,100,255,0.35)';
+        ctx.fill();
+      }
+    }
+  }
+
+  /* Reveal card content above beam */
+  document.getElementById('cs-content').style.clipPath=
+    prog>=1?'none':`inset(0 0 ${Math.round((1-prog)*100)}% 0)`;
+
+  if(prog<1){csRaf=requestAnimationFrame(csBeam);}
+  else{
+    ctx.clearRect(0,0,csCW,csCH);
+    if(csAscIv){clearInterval(csAscIv);csAscIv=null;}
+    setTimeout(()=>{
+      const ov=document.getElementById('cs-overlay');
+      ov.style.transition='opacity 1s';ov.style.opacity='0';
+      setTimeout(()=>{
+        ov.classList.remove('on');ov.style.opacity='';ov.style.transition='';
+        csOn=false;csIdx=(csIdx+1)%CS_DATA.length;csStill=null;
+        if(phase>=2&&markerSeen)setTimeout(csStart,800);
+      },1000);
+    },3000);
+  }
+}
+
 /* ── Start ── */
 document.getElementById('btn-start').addEventListener('click',()=>{
   document.getElementById('p0').classList.add('out');
   setTimeout(()=>document.getElementById('p0').style.display='none',900);
+  csInitMotion();
 
   runBreathing(async()=>{
     document.getElementById('p-wait').classList.add('on');
