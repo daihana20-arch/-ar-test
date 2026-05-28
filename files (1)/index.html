@@ -18,7 +18,8 @@ video:not(#ar-vessel){
   position:fixed!important;top:50%!important;left:50%!important;
   min-width:100vw!important;min-height:100vh!important;
   width:auto!important;height:auto!important;
-  transform:translate(-50%,-50%)!important;z-index:0!important}
+  transform:translate(-50%,-50%)!important;object-fit:cover!important;
+  opacity:1!important;filter:none!important;z-index:0!important;pointer-events:none!important}
 /* A-Frameキャンバスも全画面固定 */
 canvas.a-canvas{
   position:fixed!important;top:0!important;left:0!important;
@@ -224,7 +225,11 @@ function fixVideoSize(){
     v.style.setProperty('width','auto','important');
     v.style.setProperty('height','auto','important');
     v.style.setProperty('transform','translate(-50%,-50%)','important');
+    v.style.setProperty('object-fit','cover','important');
+    v.style.setProperty('opacity','1','important');
+    v.style.setProperty('filter','none','important');
     v.style.setProperty('z-index','0','important');
+    v.style.setProperty('pointer-events','none','important');
   });
   // canvas：全画面固定
   document.querySelectorAll('canvas.a-canvas').forEach(c=>{
@@ -236,6 +241,7 @@ function fixVideoSize(){
   });
 }
 setInterval(fixVideoSize,300);
+new MutationObserver(()=>fixVideoSize()).observe(document.body,{childList:true,subtree:true});
 
 /* ── AR Setup ── */
 let arMarkerEl=null;
