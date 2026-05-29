@@ -52,11 +52,11 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 #p2.on{opacity:1}
 #ph-cv{position:fixed;inset:0;z-index:20;pointer-events:none}
 #hud{position:fixed;top:20px;left:18px;z-index:30;
-  font-size:10px;letter-spacing:0.1em;line-height:2;pointer-events:none;
+  font-size:14px;letter-spacing:0.1em;line-height:2.4;pointer-events:none;
   opacity:0;transition:opacity 2s}
 #hud.on{opacity:1}
-.hv-s{color:#ffd060}.hv-h{color:#60c8ff}.hv-t{color:#ff7040}.hv-w{color:rgba(255,255,255,0.8)}
-.hl{color:rgba(255,255,255,0.28);margin-right:6px}
+.hv-s{color:#ffd060}.hv-h{color:#60c8ff}.hv-t{color:#ff7040}.hv-w{color:#fff}
+.hl{color:rgba(255,255,255,0.55);margin-right:8px}
 #tree-id{position:fixed;top:20px;right:18px;z-index:30;text-align:right;
   font-size:9px;letter-spacing:0.18em;color:rgba(255,255,255,0.25);
   opacity:0;transition:opacity 2s;pointer-events:none}
@@ -216,13 +216,13 @@ const attractors=[
 
 class Particle {
   constructor(ax,ay,hue){
-    this.x=ax+(Math.random()-0.5)*60;
-    this.y=ay+(Math.random()-0.5)*60;
-    this.vx=(Math.random()-0.5)*0.8;
-    this.vy=(Math.random()-0.5)*0.8;
+    this.x=ax+(Math.random()-0.5)*200;
+    this.y=ay+(Math.random()-0.5)*200;
+    this.vx=(Math.random()-0.5)*1.4;
+    this.vy=(Math.random()-0.5)*1.4;
     this.hue=hue+Math.random()*40-20;
-    this.life=0.7+Math.random()*0.3;
-    this.decay=0.003+Math.random()*0.002;
+    this.life=0.75+Math.random()*0.25;
+    this.decay=0.0012+Math.random()*0.0008;
     this.wobble=Math.random()*TAU;
     this.wobbleSpeed=(Math.random()-0.5)*0.06;
   }
@@ -239,9 +239,9 @@ class Particle {
   }
   draw(ctx,tick){
     const a=Math.max(0,this.life);
-    ctx.fillStyle=`hsla(${this.hue+tick*0.2},70%,65%,${a*0.55})`;
+    ctx.fillStyle=`hsla(${this.hue+tick*0.2},72%,68%,${a*0.72})`;
     ctx.beginPath();
-    ctx.arc(this.x,this.y,Math.max(0.001,a*4),0,TAU);
+    ctx.arc(this.x,this.y,Math.max(0.001,a*6),0,TAU);
     ctx.fill();
   }
 }
@@ -257,11 +257,11 @@ function stepParticles(){
 
   for(const pool of pools){
     const a=pool.attractor;
-    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.18)*W;
-    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.14)*H;
+    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
+    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
-    if(phAlpha>0.1 && pool.particles.length<120){
-      for(let i=0;i<3;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
+    if(phAlpha>0.1 && pool.particles.length<500){
+      for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
@@ -273,7 +273,7 @@ function stepParticles(){
     for(let i=0;i<pts.length;i++){
       for(let j=i+1;j<pts.length;j++){
         const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
-        if(dx*dx+dy*dy<3600){
+        if(dx*dx+dy*dy<9025){
           phCtx.beginPath();
           phCtx.moveTo(pts[i].x,pts[i].y);
           phCtx.lineTo(pts[j].x,pts[j].y);
@@ -424,44 +424,6 @@ void main(){
   const uBreath=gl.getUniformLocation(prog,'iBreath');
   gl.uniform2f(uRes,S,S);
 
-  /* Organic arc */
-  function wobblePt(angle,r,t){
-    const dr=Math.sin(angle*3+t*0.8)*3
-             +Math.sin(angle*7-t*0.5)*1.5
-             +Math.sin(angle*13+t*1.2)*0.8;
-    return{x:S/2+Math.cos(angle)*(r+dr),y:S/2+Math.sin(angle)*(r+dr)};
-  }
-  function drawArc(progress,isInhale,t){
-    const r=108,N=200;
-    arcCtx.clearRect(0,0,S,S);
-    arcCtx.beginPath();
-    for(let i=0;i<=N;i++){
-      const a=(i/N)*Math.PI*2;
-      const p=wobblePt(a,r,t*0.4);
-      i===0?arcCtx.moveTo(p.x,p.y):arcCtx.lineTo(p.x,p.y);
-    }
-    arcCtx.closePath();
-    arcCtx.strokeStyle='rgba(0,255,80,0.1)';
-    arcCtx.lineWidth=2;arcCtx.stroke();
-    if(progress<=0)return;
-    arcCtx.beginPath();
-    let first=true;
-    for(let i=0;i<=N;i++){
-      const a=-Math.PI/2+(i/N)*progress*Math.PI*2;
-      const p=wobblePt(a,r,t);
-      if(first){arcCtx.moveTo(p.x,p.y);first=false;}
-      else arcCtx.lineTo(p.x,p.y);
-    }
-    arcCtx.strokeStyle=isInhale?'rgba(0,255,80,0.85)':'rgba(0,200,60,0.7)';
-    arcCtx.lineWidth=3.5;arcCtx.lineCap='round';arcCtx.stroke();
-    const ep=wobblePt(-Math.PI/2+progress*Math.PI*2,r,t);
-    arcCtx.beginPath();
-    arcCtx.arc(ep.x,ep.y,4,0,Math.PI*2);
-    arcCtx.fillStyle='#00ff55';
-    arcCtx.shadowBlur=12;arcCtx.shadowColor='#00ff55';
-    arcCtx.fill();arcCtx.shadowBlur=0;
-  }
-
   /* Cycle: VDIHI 4s → pause 1s → IZDIHI 4s → pause 1s → ×3 */
   const INHALE=4000,PAUSE=1000,EXHALE=4000,CYCLE=10000,TOTAL=30000;
   wrap.style.display='flex';
@@ -471,6 +433,7 @@ void main(){
   const bparts=[];
 
   function drawBParts(gt){
+    arcCtx.clearRect(0,0,S,S);
     const cx=S/2,cy=S/2;
     if(smoothBreath>0.05){
       for(let i=0;i<Math.ceil(smoothBreath*4);i++){
@@ -509,7 +472,7 @@ void main(){
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     if(e>=TOTAL){
       active=false;
-      drawArc(0,true,gt);
+      arcCtx.clearRect(0,0,S,S);
       numEl.textContent='';
       lblIn.style.color='';lblEx.style.color='';
       wrap.classList.remove('vis');
@@ -517,26 +480,20 @@ void main(){
       return;
     }
     const ct=e%CYCLE;
-    let progress,isInhale;
     if(ct<INHALE){
-      progress=ct/INHALE;isInhale=true;
       numEl.textContent=Math.ceil((INHALE-ct)/1000)||1;
       lblIn.style.color='#00e040';lblEx.style.color='#1a4a1a';
     }else if(ct<INHALE+PAUSE){
-      progress=1;isInhale=true;
       numEl.textContent='';
       lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
     }else if(ct<INHALE+PAUSE+EXHALE){
       const x=ct-INHALE-PAUSE;
-      progress=1-x/EXHALE;isInhale=false;
       numEl.textContent=Math.ceil((EXHALE-x)/1000)||1;
       lblIn.style.color='#1a4a1a';lblEx.style.color='#00e040';
     }else{
-      progress=0;isInhale=false;
       numEl.textContent='';
       lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
     }
-    drawArc(progress,isInhale,gt);
     drawBParts(gt);
     requestAnimationFrame(btTick);
   }
