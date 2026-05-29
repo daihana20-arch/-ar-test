@@ -89,6 +89,11 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 .bt-dots{display:flex;gap:10px;margin-top:8px}
 .bt-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18)}
 .bt-dot-on{background:#00e86a;box-shadow:0 0 8px #00e86a}
+.bt-mic{background:none;border:1px solid rgba(0,255,80,0.4);color:rgba(0,255,80,0.7);
+  font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.2em;padding:10px 24px;
+  cursor:pointer;transition:all 0.4s;margin-top:4px}
+.bt-mic:hover,.bt-mic.active{border-color:#00ff55;color:#00ff55;box-shadow:0 0 10px rgba(0,255,80,0.3)}
+#cs-finale{position:fixed;inset:0;z-index:47;background:#000;display:none}
 #p3.on{opacity:1;pointer-events:auto;background:rgba(0,0,0,0.85)}
 #countdown{font-size:clamp(80px,22vw,160px);font-family:Georgia,serif;
   color:#fff;opacity:0.9;line-height:1}
@@ -149,6 +154,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
     <span class="bt-dot"></span>
     <span class="bt-dot"></span>
   </div>
+  <button id="bt-mic" class="bt-mic">[ MIC ]</button>
 </div>
 
 <div id="p-wait">INITIALIZING CAMERA…</div>
@@ -182,6 +188,8 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
     <div id="cs-content"></div>
   </div>
 </div>
+
+<canvas id="cs-finale"></canvas>
 
 <script>
 const LAT=46.227222, LON=15.259167;
@@ -308,6 +316,28 @@ function fixVideoSize(){
 setInterval(fixVideoSize,300);
 new MutationObserver(()=>fixVideoSize()).observe(document.body,{childList:true,subtree:true});
 
+/* ── Mic ── */
+let micAnalyser=null,micDataArr=null;
+function getMicVolume(){
+  if(!micAnalyser)return 0;
+  micAnalyser.getByteFrequencyData(micDataArr);
+  let s=0;for(let i=0;i<micDataArr.length;i++)s+=micDataArr[i];
+  return Math.min(1,s/micDataArr.length/128);
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('bt-mic').addEventListener('click',async function(){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      const ac=new(window.AudioContext||window.webkitAudioContext)();
+      const src=ac.createMediaStreamSource(stream);
+      const an=ac.createAnalyser();an.fftSize=256;
+      src.connect(an);
+      micAnalyser=an;micDataArr=new Uint8Array(an.frequencyBinCount);
+      this.textContent='[ MIC ON ]';this.classList.add('active');
+    }catch(e){this.textContent='[ NO MIC ]';}
+  });
+});
+
 /* ── Breathing Screen ── */
 function runBreathing(onDone){
   const wrap=document.getElementById('p-breath');
@@ -323,7 +353,7 @@ function runBreathing(onDone){
   const gl=glCv.getContext('webgl');
   const VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
   const FS=`precision mediump float;
-uniform vec2 iResolution;uniform float iTime;
+uniform vec2 iResolution;uniform float iTime;uniform float iBreath;
 float rand(float n){return fract(sin(n)*43758.5453123);}
 float noise1D(float p){float fl=floor(p);float fc=fract(p);return(mix(rand(fl),rand(fl+1.0),fc)-.5)*2.;}
 float perlin3(vec3 P){
@@ -368,11 +398,11 @@ void main(){
   vec2 pos=(-iResolution.xy+2.0*gl_FragCoord.xy)/iResolution.y;
   pos.x+=noise1D(iTime)*.05;pos.y+=noise1D(iTime+10.)*.05;
   pos+=p2(pos*2.,iTime)*.1;pos*=1.1;
-  float radius=.9+sin(iTime*4.)*.1;
+  float radius=.9+sin(iTime*4.)*.1+iBreath*.12;
   pos*=.5+pow(length(pos),10.);
   vec3 n=fbm(pos,iTime);vec3 ci=vec3(circle(pos,radius));vec3 hl=vec3(highlight(ci.r,pos,radius));
   vec3 res=clamp(ci-n,vec3(0.),vec3(1.));res.rgb=res.bgr;res*=2.;
-  res+=hl*vec3(1.,.2,.5);res=hueShift(res,5.+sin(iTime));res*=1.4;
+  res+=hl*vec3(1.,.2,.5);res=hueShift(res,5.+sin(iTime)+iBreath*2.);res*=1.4;
   gl_FragColor=vec4(res,1.);}`;
 
   function mkShader(type,src){
@@ -391,6 +421,7 @@ void main(){
   gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
   const uRes=gl.getUniformLocation(prog,'iResolution');
   const uTime=gl.getUniformLocation(prog,'iTime');
+  const uBreath=gl.getUniformLocation(prog,'iBreath');
   gl.uniform2f(uRes,S,S);
 
   /* Organic arc */
@@ -436,12 +467,45 @@ void main(){
   wrap.style.display='flex';
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('vis')));
   const t0=performance.now();
-  let active=true;
+  let active=true,smoothBreath=0;
+  const bparts=[];
+
+  function drawBParts(gt){
+    const cx=S/2,cy=S/2;
+    if(smoothBreath>0.05){
+      for(let i=0;i<Math.ceil(smoothBreath*4);i++){
+        const ang=Math.random()*Math.PI*2,r2=90+Math.random()*30;
+        bparts.push({x:cx+Math.cos(ang)*r2,y:cy+Math.sin(ang)*r2,
+          vx:Math.cos(ang)*(smoothBreath*18+Math.random()*4),
+          vy:Math.sin(ang)*(smoothBreath*18+Math.random()*4),
+          life:1,hue:120+smoothBreath*60});
+      }
+    }
+    while(bparts.length>150)bparts.shift();
+    for(let i=bparts.length-1;i>=0;i--){
+      const p=bparts[i];
+      const dx=p.x-cx,dy=p.y-cy;
+      const dist=Math.sqrt(dx*dx+dy*dy)||1;
+      const pull=(dist-100)*0.015;
+      p.vx-=(dx/dist)*pull;p.vy-=(dy/dist)*pull;
+      p.vx*=0.94;p.vy*=0.94;
+      p.x+=p.vx;p.y+=p.vy;
+      p.life-=0.018;
+      if(p.life<=0){bparts.splice(i,1);continue;}
+      arcCtx.beginPath();
+      arcCtx.arc(p.x,p.y,Math.max(0.001,p.life*2.5),0,Math.PI*2);
+      arcCtx.fillStyle=`hsla(${p.hue+gt*30},90%,65%,${p.life*0.75})`;
+      arcCtx.fill();
+    }
+  }
 
   function btTick(now){
     if(!active)return;
     const e=now-t0,gt=e/1000;
+    const mv=getMicVolume();
+    smoothBreath+=(mv-smoothBreath)*0.15;
     gl.uniform1f(uTime,gt);
+    gl.uniform1f(uBreath,smoothBreath);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     if(e>=TOTAL){
       active=false;
@@ -473,6 +537,7 @@ void main(){
       lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
     }
     drawArc(progress,isInhale,gt);
+    drawBParts(gt);
     requestAnimationFrame(btTick);
   }
   requestAnimationFrame(btTick);
@@ -577,7 +642,7 @@ const CS_DATA=[
   {label:'MESTNI GOZD 1883',title:'Čuvar zraka',
    text:'Mestni gozd je občina kupila med letoma 1883 in 1892. Picea abies je občutljiva na onesnažen zrak — dejstvo, da to drevo tu zdravo stoji, pomeni, da je zrak v Celju čist. Savinjska vlaga ustreza točno tej vrsti.'}
 ];
-let csIdx=0,csOn=false,csRaf=null,csAscIv=null,csStill=null,csT0=null;
+let csIdx=0,csOn=false,csRaf=null,csAscIv=null,csStill=null,csT0=null,csRound=0;
 const CS_DUR=10000;
 let csCW=0,csCH=0;
 const CS_SET='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*{}[]<>/|;:,.~`=+-_';
@@ -729,11 +794,91 @@ function csBeam(now){
       ov.style.transition='opacity 1s';ov.style.opacity='0';
       setTimeout(()=>{
         ov.classList.remove('on');ov.style.opacity='';ov.style.transition='';
-        csOn=false;csIdx=(csIdx+1)%CS_DATA.length;csStill=null;
+        csOn=false;
+        const nxt=(csIdx+1)%CS_DATA.length;
+        if(nxt===0)csRound++;
+        csIdx=nxt;csStill=null;
+        if(csRound>=1&&csIdx===0){startFinale();return;}
         if(phase>=2&&markerSeen)setTimeout(csStart,800);
       },1000);
     },3000);
   }
+}
+
+/* ── Finale ── */
+function fnSample(text,fontSize,W){
+  const H2=fontSize*3;
+  const tc=document.createElement('canvas');
+  tc.width=W;tc.height=H2;
+  const tx=tc.getContext('2d');
+  tx.font=`italic ${fontSize}px Georgia,serif`;
+  tx.fillStyle='#fff';tx.textAlign='center';tx.textBaseline='middle';
+  tx.fillText(text,W/2,H2/2);
+  const id=tx.getImageData(0,0,W,H2);
+  const pts=[];
+  for(let y=0;y<H2;y+=3)
+    for(let x=0;x<W;x+=3)
+      if(id.data[(y*W+x)*4+3]>60)pts.push({x,dy:y-H2/2});
+  return pts;
+}
+
+function startFinale(){
+  const cv=document.getElementById('cs-finale');
+  const FW=window.innerWidth,FH=window.innerHeight;
+  cv.width=FW;cv.height=FH;cv.style.display='block';
+  const ctx=cv.getContext('2d');
+  const fs=Math.min(Math.max(FW*0.06,24),52);
+  const pts1=fnSample('Pospravi telefon.',fs,FW);
+  const pts2=fnSample('Objami drevo.',fs,FW);
+  const cy1=FH*0.42,cy2=FH*0.58;
+  function mk(pts,cy,baseDelay){
+    return pts.map(p=>({
+      tx:p.x,ty:cy+p.dy,
+      x:Math.random()*FW,y:Math.random()*FH,
+      vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,
+      life:1,st:0,delay:baseDelay+Math.random()*400
+    }));
+  }
+  const fp=[...mk(pts1,cy1,0),...mk(pts2,cy2,3500)];
+  const fnT0=performance.now();
+
+  function fnDraw(now){
+    const el=now-fnT0;
+    ctx.fillStyle='rgba(0,0,0,0.18)';
+    ctx.fillRect(0,0,FW,FH);
+    let alive=false;
+    for(const p of fp){
+      if(el<p.delay){alive=true;continue;}
+      if(!p.st)p.st=now;
+      const t=now-p.st;
+      if(t<1500){
+        p.x+=p.vx;p.y+=p.vy;p.vx*=0.97;p.vy*=0.97;alive=true;
+      }else if(t<4500){
+        const dx=p.tx-p.x,dy=p.ty-p.y;
+        p.vx+=dx*0.06;p.vy+=dy*0.06;
+        p.vx*=0.82;p.vy*=0.82;
+        p.x+=p.vx;p.y+=p.vy;alive=true;
+      }else if(el<10500){
+        p.x=p.tx;p.y=p.ty;alive=true;
+      }else{
+        p.vx+=(Math.random()-0.5)*2;p.vy+=(Math.random()-0.5)*2;
+        p.x+=p.vx;p.y+=p.vy;p.life-=0.006;
+        if(p.life>0)alive=true;
+      }
+      if(p.life<=0)continue;
+      const hue=120+(p.tx/FW)*60;
+      ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${hue},85%,65%,${p.life*0.9})`;
+      ctx.fill();
+    }
+    if(alive&&el<14000){requestAnimationFrame(fnDraw);}
+    else{
+      cv.style.display='none';
+      ctx.clearRect(0,0,FW,FH);
+      csRound=0;csIdx=0;
+    }
+  }
+  requestAnimationFrame(fnDraw);
 }
 
 /* ── Start ── */
