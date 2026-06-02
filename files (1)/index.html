@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Vidaloka&display=swap" rel="stylesheet">
 <title>Planet Intelligence — Akumulacija tišine</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
@@ -76,7 +77,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 #p-breath.vis{opacity:1}
 .bt-title{font-family:Georgia,serif;font-style:italic;font-size:24px;
   color:#fff;text-align:center;padding:0 28px;line-height:1.5;max-width:560px}
-.bt-label{font-family:'Courier New',monospace;font-size:20px;letter-spacing:0.25em;
+.bt-label{font-family:'Vidaloka',serif;font-size:21px;letter-spacing:0.25em;
   color:rgba(255,255,255,0.2);transition:color 0.4s}
 .bt-ring-wrap{position:relative;width:260px;height:260px}
 #glCanvas,#arcCanvas{position:absolute;top:0;left:0;width:260px;height:260px}
@@ -167,7 +168,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   <div class="bt-ring-wrap">
     <canvas id="glCanvas" width="260" height="260"></canvas>
     <canvas id="arcCanvas" width="260" height="260"></canvas>
-    <div id="bt-num">4</div>
+    <div id="bt-num"></div>
   </div>
   <div id="bt-izdihi" class="bt-label">IZDIHI</div>
   <div class="bt-dots">
@@ -177,7 +178,6 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
     <span class="bt-dot"></span>
     <span class="bt-dot"></span>
   </div>
-  <button id="bt-mic" class="bt-mic">[ MIC ]</button>
 </div>
 
 <div id="p-wait">INITIALIZING CAMERA…</div>
@@ -353,20 +353,6 @@ function getMicVolume(){
   let s=0;for(let i=0;i<micDataArr.length;i++)s+=micDataArr[i];
   return Math.min(1,s/micDataArr.length/128);
 }
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('bt-mic').addEventListener('click',async function(){
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-      const ac=new(window.AudioContext||window.webkitAudioContext)();
-      const src=ac.createMediaStreamSource(stream);
-      const an=ac.createAnalyser();an.fftSize=256;
-      src.connect(an);
-      micAnalyser=an;micDataArr=new Uint8Array(an.frequencyBinCount);
-      this.textContent='[ MIC ON ]';this.classList.add('active');
-    }catch(e){this.textContent='[ NO MIC ]';}
-  });
-});
-
 /* ── Breathing Screen ── */
 function runBreathing(onDone){
   const wrap=document.getElementById('p-breath');
@@ -376,6 +362,7 @@ function runBreathing(onDone){
   const lblIn=document.getElementById('bt-vdihi');
   const lblEx=document.getElementById('bt-izdihi');
   const arcCtx=arcCv.getContext('2d');
+  const ringWrap=document.querySelector('.bt-ring-wrap');
   const S=260;
 
   const gl=glCv.getContext('webgl');
@@ -456,9 +443,38 @@ void main(){
   const INHALE=4000,PAUSE=1000,EXHALE=4000,CYCLE=10000,TOTAL=30000;
   wrap.style.display='flex';
   requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('vis')));
+
+  /* Initial state: small sphere, "start" text */
+  ringWrap.style.transform='scale(0.6)';
+  numEl.style.fontSize='24px';
+  numEl.style.fontFamily='"Courier New",monospace';
+  numEl.style.letterSpacing='0.2em';
+  numEl.style.cursor='pointer';
+  numEl.style.color='rgba(255,255,255,0.85)';
+  numEl.style.textShadow='0 0 20px rgba(0,255,80,0.5)';
+  numEl.style.pointerEvents='auto';
+  numEl.textContent='start';
+
   const t0=performance.now();
+  let cycleT0=null;
   let active=true,smoothBreath=0;
   const bparts=[];
+
+  numEl.addEventListener('click',async function startClick(){
+    if(cycleT0!==null)return;
+    numEl.style.fontSize='';numEl.style.fontFamily='';numEl.style.letterSpacing='';
+    numEl.style.cursor='';numEl.style.color='';numEl.style.textShadow='';
+    numEl.style.pointerEvents='';numEl.textContent='';
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      const ac=new(window.AudioContext||window.webkitAudioContext)();
+      const src=ac.createMediaStreamSource(stream);
+      const an=ac.createAnalyser();an.fftSize=256;
+      src.connect(an);
+      micAnalyser=an;micDataArr=new Uint8Array(an.frequencyBinCount);
+    }catch(e){}
+    cycleT0=performance.now();
+  });
 
   function drawBParts(gt){
     arcCtx.clearRect(0,0,S,S);
@@ -492,35 +508,44 @@ void main(){
 
   function btTick(now){
     if(!active)return;
-    const e=now-t0,gt=e/1000;
+    const gt=(now-t0)/1000;
     const mv=getMicVolume();
     smoothBreath+=(mv-smoothBreath)*0.15;
     gl.uniform1f(uTime,gt);
     gl.uniform1f(uBreath,smoothBreath);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-    if(e>=TOTAL){
-      active=false;
-      arcCtx.clearRect(0,0,S,S);
-      numEl.textContent='';
-      lblIn.style.color='';lblEx.style.color='';
-      wrap.classList.remove('vis');
-      setTimeout(()=>{wrap.style.display='none';onDone();},1000);
-      return;
-    }
-    const ct=e%CYCLE;
-    if(ct<INHALE){
-      numEl.textContent=Math.ceil((INHALE-ct)/1000)||1;
-      lblIn.style.color='#00e040';lblEx.style.color='#1a4a1a';
-    }else if(ct<INHALE+PAUSE){
-      numEl.textContent='';
-      lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
-    }else if(ct<INHALE+PAUSE+EXHALE){
-      const x=ct-INHALE-PAUSE;
-      numEl.textContent=Math.ceil((EXHALE-x)/1000)||1;
-      lblIn.style.color='#1a4a1a';lblEx.style.color='#00e040';
-    }else{
-      numEl.textContent='';
-      lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
+    if(cycleT0!==null){
+      const e=now-cycleT0;
+      if(e>=TOTAL){
+        active=false;
+        arcCtx.clearRect(0,0,S,S);
+        numEl.textContent='';
+        lblIn.style.color='';lblEx.style.color='';
+        wrap.classList.remove('vis');
+        setTimeout(()=>{wrap.style.display='none';onDone();},1000);
+        return;
+      }
+      const ct=e%CYCLE;
+      let scale;
+      if(ct<INHALE){
+        scale=0.6+(ct/INHALE)*0.55;
+        numEl.textContent=Math.ceil((INHALE-ct)/1000)||1;
+        lblIn.style.color='#00e040';lblEx.style.color='#1a4a1a';
+      }else if(ct<INHALE+PAUSE){
+        scale=1.15;
+        numEl.textContent='';
+        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
+      }else if(ct<INHALE+PAUSE+EXHALE){
+        const x=ct-INHALE-PAUSE;
+        scale=1.15-(x/EXHALE)*0.55;
+        numEl.textContent=Math.ceil((EXHALE-x)/1000)||1;
+        lblIn.style.color='#1a4a1a';lblEx.style.color='#00e040';
+      }else{
+        scale=0.6;
+        numEl.textContent='';
+        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
+      }
+      ringWrap.style.transform=`scale(${scale.toFixed(3)})`;
     }
     drawBParts(gt);
     requestAnimationFrame(btTick);
