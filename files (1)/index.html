@@ -304,7 +304,7 @@ function stepParticles(){
     pool.particles=pool.particles.filter(p=>p.life>0);
     for(const p of pool.particles){
       p.step(tick);
-      if(convProg>0){const dx=W/2-p.x,dy=H/2-p.y;p.vx+=dx*convProg*0.003;p.vy+=dy*convProg*0.003;}
+      if(convProg>0){const dx=W/2-p.x,dy=H/2-p.y;p.vx+=dx*convProg*0.05;p.vy+=dy*convProg*0.05;}
       p.draw(phCtx,tick);
     }
 
