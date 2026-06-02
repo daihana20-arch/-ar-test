@@ -50,7 +50,8 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 #p2.on{opacity:1}
 #ph-cv{position:fixed;inset:0;z-index:20;pointer-events:none}
 #hud{position:fixed;top:20px;left:18px;z-index:30;
-  font-size:14px;letter-spacing:0.1em;line-height:2.4;pointer-events:none;
+  font-size:17px;letter-spacing:0.1em;line-height:2.4;pointer-events:none;
+  background:rgba(0,0,0,0.55);padding:10px 14px;
   opacity:0;transition:opacity 2s}
 #hud.on{opacity:1}
 .hv-s{color:#ffd060}.hv-h{color:#60c8ff}.hv-t{color:#ff7040}.hv-w{color:#fff}
@@ -587,7 +588,7 @@ function initAR(){
 }
 
 /* ── Main Loop ── */
-let p3started=false;
+let p3started=false,motionStarted=false;
 
 function arLoop(){
   requestAnimationFrame(arLoop);
@@ -603,6 +604,7 @@ function arLoop(){
   stepParticles();
 
   if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
+  if(markerSeen && !motionStarted){ motionStarted=true; setTimeout(csInitMotion,10000); }
 }
 
 function startPhase3(){
@@ -991,7 +993,6 @@ function startFinale(){
 document.getElementById('btn-start').addEventListener('click',()=>{
   document.getElementById('p0').classList.add('out');
   setTimeout(()=>document.getElementById('p0').style.display='none',900);
-  csInitMotion();
 
   runBreathing(async()=>{
     document.getElementById('p-wait').classList.add('on');
