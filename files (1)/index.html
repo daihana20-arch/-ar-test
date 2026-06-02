@@ -224,7 +224,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 <script>
 const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
-let markerSeen=false, phActive=false, phAlpha=0, phase=0, tick=0;
+let markerSeen=false, phAlpha=0, phase=0, tick=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 let convTimer=null,convergenceStart=null;
 
@@ -589,7 +589,7 @@ function initAR(){
   arMarkerEl=marker;
 
   marker.addEventListener('markerFound',()=>{
-    markerSeen=true; phActive=true;
+    markerSeen=true;
     document.getElementById('sci').classList.add('on');
     clearTimeout(convTimer);
     convergenceStart=null;
@@ -619,7 +619,6 @@ function arLoop(){
   if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
   if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
   if(!markerSeen && phAlpha<=0){
-    phActive=false;
     pools.forEach(p=>p.particles=[]);
   }
 
