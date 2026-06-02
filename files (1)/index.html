@@ -173,8 +173,6 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   <div id="bt-izdihi" class="bt-label">IZDIHI</div>
   <div class="bt-dots">
     <span class="bt-dot"></span>
-    <span class="bt-dot bt-dot-on"></span>
-    <span class="bt-dot"></span>
     <span class="bt-dot"></span>
     <span class="bt-dot"></span>
   </div>
@@ -457,7 +455,7 @@ void main(){
 
   const t0=performance.now();
   let cycleT0=null;
-  let active=true,smoothBreath=0;
+  let active=true,smoothBreath=0,lastCycleCount=0;
   const bparts=[];
 
   numEl.addEventListener('click',async function startClick(){
@@ -516,6 +514,15 @@ void main(){
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     if(cycleT0!==null){
       const e=now-cycleT0;
+      const completedCycles=Math.floor(e/CYCLE);
+      if(completedCycles!==lastCycleCount){
+        lastCycleCount=completedCycles;
+        const dots=wrap.querySelectorAll('.bt-dot');
+        dots.forEach((d,i)=>{
+          if(i<completedCycles)d.classList.add('bt-dot-on');
+          else d.classList.remove('bt-dot-on');
+        });
+      }
       if(e>=TOTAL){
         active=false;
         arcCtx.clearRect(0,0,S,S);
