@@ -226,6 +226,7 @@ const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phActive=false, phAlpha=0, phase=0, tick=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
+let convTimer=null,convergenceStart=null;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -285,17 +286,27 @@ function stepParticles(){
   phCtx.globalAlpha=phAlpha;
   tick++;
 
+  let convProg=0;
+  if(convergenceStart!==null&&!csOn){
+    convProg=Math.min(1,(performance.now()-convergenceStart)/5000);
+    if(convProg>=1){convergenceStart=null;convTimer=null;csStart();convProg=0;}
+  }
+
   for(const pool of pools){
     const a=pool.attractor;
     const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
-    if(phAlpha>0.1 && pool.particles.length<500){
+    if(phAlpha>0.1 && pool.particles.length<500 && convergenceStart===null && !csOn){
       for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
-    for(const p of pool.particles){ p.step(tick); p.draw(phCtx,tick); }
+    for(const p of pool.particles){
+      p.step(tick);
+      if(convProg>0){const dx=W/2-p.x,dy=H/2-p.y;p.vx+=dx*convProg*0.003;p.vy+=dy*convProg*0.003;}
+      p.draw(phCtx,tick);
+    }
 
     phCtx.strokeStyle=`hsla(${pool.hue+tick*0.2},60%,70%,0.08)`;
     phCtx.lineWidth=0.5;
@@ -580,11 +591,14 @@ function initAR(){
   marker.addEventListener('markerFound',()=>{
     markerSeen=true; phActive=true;
     document.getElementById('sci').classList.add('on');
+    clearTimeout(convTimer);
+    convergenceStart=null;
+    convTimer=setTimeout(()=>{convergenceStart=performance.now();},15000);
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
+    clearTimeout(convTimer); convTimer=null; convergenceStart=null;
     document.getElementById('hud').classList.remove('on');
-    document.getElementById('tree-id').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
 
