@@ -260,9 +260,9 @@ class Particle {
   }
   step(tick){
     if(this.tx!==null){
-      this.vx+=(this.tx-this.x)*0.02;
-      this.vy+=(this.ty-this.y)*0.02;
-      this.vx*=0.92; this.vy*=0.92;
+      this.vx+=(this.tx-this.x)*0.003;
+      this.vy+=(this.ty-this.y)*0.003;
+      this.vx*=0.98; this.vy*=0.98;
       this.tx+=Math.sin(this.wobble)*0.5;
       this.ty+=Math.cos(this.wobble)*0.5;
       this.wobble+=this.wobbleSpeed;
