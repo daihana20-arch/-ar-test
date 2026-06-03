@@ -226,7 +226,7 @@ const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phAlpha=0, phase=0, tick=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
-let convTimer=null,convergenceStart=null;
+let convergenceStart=null;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -286,18 +286,10 @@ function stepParticles(){
   phCtx.globalAlpha=phAlpha;
   tick++;
 
-  /* Card area bounds */
   const CX1=W*0.05,CX2=W*0.95,CY1=H*0.09,CY2=H*0.91;
   const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
-
-  /* Convergence phase: 1=converging(0-5s), 2=dwell(5-8s), 3=fadeout(8s+) */
-  let convPhase=0,convProg=0;
-  if(convergenceStart!==null){
-    const t=performance.now()-convergenceStart;
-    if(t<5000){convPhase=1;convProg=t/5000;}
-    else if(t<8000){convPhase=2;convProg=1;if(!csOn)csStart();}
-    else{convPhase=3;}
-  }
+  /* converging: marker seen, cards not yet open */
+  const converging=convergenceStart!==null&&!csOn;
 
   for(const pool of pools){
     const a=pool.attractor;
@@ -305,43 +297,37 @@ function stepParticles(){
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
     if(phAlpha>0.1){
-      if(convPhase===0&&!csOn&&pool.particles.length<500){
-        /* Normal mode: spawn at attractors */
+      if(!converging&&!csOn&&pool.particles.length<500){
+        /* Normal: spawn at attractors */
         for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
-      }else if((convPhase===1||convPhase===2)&&pool.particles.length<400){
-        /* Convergence/dwell: spawn randomly within card area */
+      }else if(converging&&pool.particles.length<400){
+        /* Converging: spawn within card area to build density */
         for(let i=0;i<7;i++) pool.particles.push(new Particle(
           CX1+Math.random()*(CX2-CX1),
           CY1+Math.random()*(CY2-CY1),pool.hue));
       }
-      /* convPhase===3: no new spawning, let particles die */
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
     for(const p of pool.particles){
       p.step(tick);
 
-      if(convPhase===1||convPhase===2){
-        /* Stop natural decay so particles stay alive */
+      if(converging){
         p.decay=0;
-
-        /* Phase 1: pull particles outside the area toward center */
-        if(convPhase===1&&(p.x<CX1||p.x>CX2||p.y<CY1||p.y>CY2)){
-          p.vx+=(CCX-p.x)*convProg*0.006;
-          p.vy+=(CCY-p.y)*convProg*0.006;
+        /* Gentle pull toward center for particles outside card area */
+        if(p.x<CX1||p.x>CX2||p.y<CY1||p.y>CY2){
+          p.vx+=(CCX-p.x)*0.0005;
+          p.vy+=(CCY-p.y)*0.0005;
         }
-
-        /* Hard boundary: clamp position and reflect velocity */
-        if(p.x<CX1){p.x=CX1;if(p.vx<0)p.vx*=-0.5;}
-        if(p.x>CX2){p.x=CX2;if(p.vx>0)p.vx*=-0.5;}
-        if(p.y<CY1){p.y=CY1;if(p.vy<0)p.vy*=-0.5;}
-        if(p.y>CY2){p.y=CY2;if(p.vy>0)p.vy*=-0.5;}
+        /* Soft boundary: reflect with damping */
+        if(p.x<CX1){p.x=CX1;if(p.vx<0)p.vx*=-0.3;}
+        if(p.x>CX2){p.x=CX2;if(p.vx>0)p.vx*=-0.3;}
+        if(p.y<CY1){p.y=CY1;if(p.vy<0)p.vy*=-0.3;}
+        if(p.y>CY2){p.y=CY2;if(p.vy>0)p.vy*=-0.3;}
       }
 
-      if(convPhase===3){
-        /* Accelerate decay for fast fade-out */
-        p.decay=0.008;
-      }
+      /* After card open: accelerate fade-out */
+      if(csOn) p.decay=0.008;
 
       p.draw(phCtx,tick);
     }
@@ -362,10 +348,20 @@ function stepParticles(){
     }
   }
 
-  /* Reset once all particles have faded in phase 3 */
-  if(convPhase===3&&pools.every(p=>p.particles.length===0)){
-    convergenceStart=null;
+  /* Density check: call csStart when ≥90% of particles are inside card area */
+  if(converging){
+    let total=0,inside=0;
+    for(const pool of pools){
+      for(const p of pool.particles){
+        total++;
+        if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
+      }
+    }
+    if(total>50&&inside/total>=0.9) csStart();
   }
+
+  /* Reset convergenceStart once particles have fully faded post-card */
+  if(csOn&&pools.every(p=>p.particles.length===0)) convergenceStart=null;
 
   phCtx.restore();
 }
@@ -635,13 +631,11 @@ function initAR(){
   marker.addEventListener('markerFound',()=>{
     markerSeen=true;
     document.getElementById('sci').classList.add('on');
-    clearTimeout(convTimer);
-    convergenceStart=null;
-    convTimer=setTimeout(()=>{convergenceStart=performance.now();},15000);
+    convergenceStart=performance.now();
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
-    clearTimeout(convTimer); convTimer=null; convergenceStart=null;
+    convergenceStart=null;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
