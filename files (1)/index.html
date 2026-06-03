@@ -260,15 +260,14 @@ class Particle {
   }
   step(tick){
     if(this.tx!==null){
-      const spd=8*0.015;
-      this.wobble+=this.wobbleSpeed;
-      const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
-      const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
-      this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
-      this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-      this.vx+=(this.tx-this.x)*0.001;
-      this.vy+=(this.ty-this.y)*0.001;
-      this.vx*=0.97; this.vy*=0.97;
+      const dx=this.tx-this.x;
+      const dy=this.ty-this.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist>1){
+        this.x+=dx*0.005;
+        this.y+=dy*0.005;
+      }
+      return;
     } else {
       const spd=8*0.015;
       this.wobble+=this.wobbleSpeed;
