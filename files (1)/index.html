@@ -324,9 +324,12 @@ function stepParticles(){
 
   /* Convergence: wall push + density check after disperse phase */
   if(inConvPhase){
-    const cardRect=document.getElementById('cs-card').getBoundingClientRect();
-    const CX1=cardRect.left,CX2=cardRect.right;
-    const CY1=cardRect.top,CY2=cardRect.bottom;
+    const cardW=Math.min(window.innerWidth*0.9,340);
+    const cardH=window.innerHeight*0.82;
+    const CX1=(window.innerWidth-cardW)/2;
+    const CX2=CX1+cardW;
+    const CY1=window.innerHeight*0.09;
+    const CY2=CY1+cardH;
     const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
 
     for(const pool of pools){
