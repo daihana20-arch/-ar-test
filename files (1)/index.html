@@ -318,7 +318,7 @@ function stepParticles(){
     const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
-    if(phAlpha>0.1&&!csOn&&pool.particles.length<500){
+    if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
       for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
