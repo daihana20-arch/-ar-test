@@ -226,7 +226,7 @@ const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
-let convergenceStart=null;
+let convergenceStart=null, disperseStart=null;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -246,11 +246,11 @@ const attractors=[
 ];
 
 class Particle {
-  constructor(ax,ay,hue,vx0,vy0){
-    this.x=ax;
-    this.y=ay;
-    this.vx=vx0!==undefined?vx0:(Math.random()-0.5)*1.4;
-    this.vy=vy0!==undefined?vy0:(Math.random()-0.5)*1.4;
+  constructor(ax,ay,hue){
+    this.x=ax+(Math.random()-0.5)*200;
+    this.y=ay+(Math.random()-0.5)*200;
+    this.vx=(Math.random()-0.5)*1.4;
+    this.vy=(Math.random()-0.5)*1.4;
     this.hue=hue+Math.random()*40-20;
     this.life=0.75+Math.random()*0.25;
     this.decay=0.0012+Math.random()*0.0008;
@@ -286,46 +286,19 @@ function stepParticles(){
   phCtx.globalAlpha=phAlpha;
   tick++;
 
-  const cardW=Math.min(W*0.9,340);
-  const cardH=H*0.82;
-  const CX1=(W-cardW)/2;
-  const CX2=CX1+cardW;
-  const CY1=H*0.09;
-  const CY2=CY1+cardH;
-  const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
-
-  const elapsed=convergenceStart!==null?performance.now()-convergenceStart:0;
-  const isConverging=converging&&elapsed>=20000;
-  const convProgress=isConverging?Math.min(1,(elapsed-20000)/10000):0; // 0→1 over 10s
-  const pullStrength=0.0002+convProgress*0.0008; // 0.0002→0.001
-
   for(const pool of pools){
-    /* Phase 1: spawn at screen centre with large scatter velocity */
+    const a=pool.attractor;
+    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
+    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
+
     if(phAlpha>0.1&&!csOn&&pool.particles.length<500){
-      const vx0=(Math.random()-0.5)*8;
-      const vy0=(Math.random()-0.5)*8;
-      pool.particles.push(new Particle(W/2,H*0.6,pool.hue,vx0,vy0));
+      for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
     for(const p of pool.particles){
       p.step(tick);
-
-      if(isConverging){
-        p.decay=0;
-        /* Pull toward card centre */
-        p.vx+=(CCX-p.x)*pullStrength;
-        p.vy+=(CCY-p.y)*pullStrength;
-        /* Wall push */
-        if(p.x<CX1) p.vx+=0.3;
-        if(p.x>CX2) p.vx-=0.3;
-        if(p.y<CY1) p.vy+=0.3;
-        if(p.y>CY2) p.vy-=0.3;
-      }
-
-      /* After card open: accelerate fade-out */
       if(csOn) p.decay=0.008;
-
       p.draw(phCtx,tick);
     }
 
@@ -345,16 +318,30 @@ function stepParticles(){
     }
   }
 
-  /* Density check: trigger csStart once particles have converged into card area */
-  if(isConverging){
-    let total=0,inside=0;
+  /* Convergence: wall push + density check after 20s disperse phase */
+  const elapsed=disperseStart?performance.now()-disperseStart:0;
+  if(elapsed>20000&&converging){
+    const cardW=Math.min(W*0.9,340);
+    const cardH=H*0.82;
+    const CX1=(W-cardW)/2,CX2=(W+cardW)/2;
+    const CY1=H*0.09,CY2=CY1+cardH;
+
     for(const pool of pools){
+      for(const p of pool.particles){
+        if(p.x<CX1) p.vx+=0.15;
+        if(p.x>CX2) p.vx-=0.15;
+        if(p.y<CY1) p.vy+=0.15;
+        if(p.y>CY2) p.vy-=0.15;
+      }
+    }
+
+    let total=0,inside=0;
+    for(const pool of pools)
       for(const p of pool.particles){
         total++;
         if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
       }
-    }
-    if(phAlpha>=0.8&&total>=300&&inside/total>=0.85) csStart();
+    if(phAlpha>=0.8&&total>=200&&inside/total>=0.85) csStart();
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
@@ -630,6 +617,7 @@ function initAR(){
     phActive=true;
     converging=true;
     convergenceStart=performance.now();
+    disperseStart=performance.now();
     document.getElementById('sci').classList.add('on');
   });
   marker.addEventListener('markerLost',()=>{
@@ -637,6 +625,7 @@ function initAR(){
     phActive=false;
     converging=false;
     convergenceStart=null;
+    disperseStart=null;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
