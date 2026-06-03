@@ -291,7 +291,7 @@ function stepParticles(){
     const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
-    if(phAlpha>0.1&&!csOn&&pool.particles.length<500){
+    if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
       for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
@@ -329,12 +329,12 @@ function stepParticles(){
 
     for(const pool of pools){
       for(const p of pool.particles){
-        if(p.x<CX1) p.vx+=0.5;
-        if(p.x>CX2) p.vx-=0.5;
-        if(p.y<CY1) p.vy+=0.5;
-        if(p.y>CY2) p.vy-=0.5;
-        p.vx+=(CCX-p.x)*0.0008;
-        p.vy+=(CCY-p.y)*0.0008;
+        if(p.x<CX1) p.vx+=2.5;
+        if(p.x>CX2) p.vx-=2.5;
+        if(p.y<CY1) p.vy+=2.5;
+        if(p.y>CY2) p.vy-=2.5;
+        p.vx+=(CCX-p.x)*0.003;
+        p.vy+=(CCY-p.y)*0.003;
       }
     }
 
