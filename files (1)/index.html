@@ -65,13 +65,13 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,transparent 100%);
   opacity:0;transition:opacity 2.5s}
 #sci.on{opacity:1}
-.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .bar-row:last-child{margin-bottom:0}
 .bar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.bar-label{font-size:9px;color:rgba(255,255,255,0.38);width:52px;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
-.bar-track{flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
+.bar-label{font-size:11px;color:rgba(255,255,255,0.38);width:52px;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
+.bar-track{flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
 .bar-fill{height:100%;border-radius:2px;width:0%;transition:width 1.2s ease}
-.bar-value{font-size:11px;font-weight:500;width:56px;text-align:right;flex-shrink:0}
+.bar-value{font-size:14px;font-weight:500;width:56px;text-align:right;flex-shrink:0}
 #p3{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,0);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   pointer-events:none;opacity:0;transition:opacity 1.2s}
@@ -195,7 +195,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   </div>
   <div id="tree-id">TREE_01<br>Picea abies</div>
   <div id="sci">
-    <div id="data-panel" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);padding:14px 18px 22px;">
+    <div id="data-panel" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.88);padding:14px 18px 22px;">
       <div class="bar-row"><div class="bar-dot" style="background:#FFF600"></div><div class="bar-label">sevanje</div><div class="bar-track"><div class="bar-fill" id="fill-solar" style="background:#FFF600"></div></div><div class="bar-value" id="val-solar" style="color:#FFF600">— W/m²</div></div>
       <div class="bar-row"><div class="bar-dot" style="background:#31E1F7"></div><div class="bar-label">vlažnost</div><div class="bar-track"><div class="bar-fill" id="fill-humid" style="background:#31E1F7"></div></div><div class="bar-value" id="val-humid" style="color:#31E1F7">— %</div></div>
       <div class="bar-row"><div class="bar-dot" style="background:#D800A6"></div><div class="bar-label">temp</div><div class="bar-track"><div class="bar-fill" id="fill-temp" style="background:#D800A6"></div></div><div class="bar-value" id="val-temp" style="color:#D800A6">— °C</div></div>
