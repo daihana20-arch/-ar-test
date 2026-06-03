@@ -260,9 +260,12 @@ class Particle {
   }
   step(tick){
     if(this.tx!==null){
-      this.vx+=(this.tx-this.x)*0.05;
-      this.vy+=(this.ty-this.y)*0.05;
-      this.vx*=0.85; this.vy*=0.85;
+      this.vx+=(this.tx-this.x)*0.02;
+      this.vy+=(this.ty-this.y)*0.02;
+      this.vx*=0.92; this.vy*=0.92;
+      this.tx+=Math.sin(this.wobble)*0.5;
+      this.ty+=Math.cos(this.wobble)*0.5;
+      this.wobble+=this.wobbleSpeed;
     } else {
       const spd=8*0.015;
       this.wobble+=this.wobbleSpeed;
@@ -316,7 +319,7 @@ function stepParticles(){
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
     if(phAlpha>0.1&&!csOn&&pool.particles.length<500){
-      for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
+      for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
