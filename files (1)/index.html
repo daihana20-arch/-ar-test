@@ -318,20 +318,23 @@ function stepParticles(){
     }
   }
 
-  /* Convergence: wall push + density check after 20s disperse phase */
+  /* Convergence: wall push + density check after disperse phase */
   const elapsed=disperseStart?performance.now()-disperseStart:0;
-  if(elapsed>20000&&converging){
+  if(elapsed>5000&&converging){
     const cardW=Math.min(W*0.9,340);
     const cardH=H*0.82;
     const CX1=(W-cardW)/2,CX2=(W+cardW)/2;
     const CY1=H*0.09,CY2=CY1+cardH;
+    const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
 
     for(const pool of pools){
       for(const p of pool.particles){
-        if(p.x<CX1) p.vx+=0.15;
-        if(p.x>CX2) p.vx-=0.15;
-        if(p.y<CY1) p.vy+=0.15;
-        if(p.y>CY2) p.vy-=0.15;
+        if(p.x<CX1) p.vx+=0.5;
+        if(p.x>CX2) p.vx-=0.5;
+        if(p.y<CY1) p.vy+=0.5;
+        if(p.y>CY2) p.vy-=0.5;
+        p.vx+=(CCX-p.x)*0.0008;
+        p.vy+=(CCY-p.y)*0.0008;
       }
     }
 
@@ -341,7 +344,8 @@ function stepParticles(){
         total++;
         if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
       }
-    if(phAlpha>=0.8&&total>=200&&inside/total>=0.85) csStart();
+    if(tick%100===0) console.log('elapsed:',elapsed,'total:',total,'inside:',inside,'ratio:',inside/total);
+    // if(phAlpha>=0.8&&total>=200&&inside/total>=0.85) csStart();
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
