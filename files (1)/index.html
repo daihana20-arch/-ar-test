@@ -65,9 +65,13 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,transparent 100%);
   opacity:0;transition:opacity 2.5s}
 #sci.on{opacity:1}
-#sci-main{font-size:clamp(16px,4.2vw,24px);font-family:Georgia,serif;font-style:italic;
-  color:rgba(255,255,255,0.9);line-height:1.5;margin-bottom:8px}
-#sci-sub{font-size:11px;letter-spacing:0.14em;color:#b8ff50}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-row:last-child{margin-bottom:0}
+.bar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.bar-label{font-size:9px;color:rgba(255,255,255,0.38);width:52px;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
+.bar-track{flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;width:0%;transition:width 1.2s ease}
+.bar-value{font-size:11px;font-weight:500;width:56px;text-align:right;flex-shrink:0}
 #p3{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,0);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   pointer-events:none;opacity:0;transition:opacity 1.2s}
@@ -191,8 +195,12 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   </div>
   <div id="tree-id">TREE_01<br>Picea abies</div>
   <div id="sci">
-    <div id="sci-main"></div>
-    <div id="sci-sub"></div>
+    <div id="data-panel" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);padding:14px 18px 22px;">
+      <div class="bar-row"><div class="bar-dot" style="background:#FFF600"></div><div class="bar-label">sevanje</div><div class="bar-track"><div class="bar-fill" id="fill-solar" style="background:#FFF600"></div></div><div class="bar-value" id="val-solar" style="color:#FFF600">— W/m²</div></div>
+      <div class="bar-row"><div class="bar-dot" style="background:#31E1F7"></div><div class="bar-label">vlažnost</div><div class="bar-track"><div class="bar-fill" id="fill-humid" style="background:#31E1F7"></div></div><div class="bar-value" id="val-humid" style="color:#31E1F7">— %</div></div>
+      <div class="bar-row"><div class="bar-dot" style="background:#D800A6"></div><div class="bar-label">temp</div><div class="bar-track"><div class="bar-fill" id="fill-temp" style="background:#D800A6"></div></div><div class="bar-value" id="val-temp" style="color:#D800A6">— °C</div></div>
+      <div class="bar-row"><div class="bar-dot" style="background:#fff"></div><div class="bar-label">veter</div><div class="bar-track"><div class="bar-fill" id="fill-wind" style="background:#fff"></div></div><div class="bar-value" id="val-wind" style="color:#fff">— m/s</div></div>
+    </div>
   </div>
 </div>
 
@@ -709,14 +717,19 @@ async function fetchWeather(){
     document.getElementById('v-h').textContent=weather.humidity.toFixed(0)+'%';
     document.getElementById('v-t').textContent=weather.temp.toFixed(1)+'°C';
     document.getElementById('v-w').textContent=weather.wind.toFixed(1)+' m/s';
-    const rad=weather.radiation,hum=weather.humidity,tmp=weather.temp;
-    const hl=Math.max(0,Math.min(10,(rad/500)*10));
-    const co2=((6+(rad/500)*5+(hum/100)*2)*hl*0.7).toFixed(1);
-    const psi=((-0.8-(tmp/30)*0.6-(1-hum/100)*0.8)).toFixed(2);
-    const flow=(15+(rad/500)*35+(hum/100)*20).toFixed(0);
-    document.getElementById('sci-main').textContent=`danes je to drevo absorbiralo ${co2} kg CO₂`;
-    document.getElementById('sci-sub').textContent=`vodni potencial ${psi} MPa · tok ${flow} ml/h · sevanje ${rad.toFixed(0)} W/m²`;
+    updateBars(weather.radiation,weather.humidity,weather.temp,weather.wind);
   }catch(e){}
+}
+
+function updateBars(solar,humid,temp,wind){
+  document.getElementById('val-solar').textContent=Math.round(solar)+' W/m²';
+  document.getElementById('val-humid').textContent=Math.round(humid)+' %';
+  document.getElementById('val-temp').textContent=temp.toFixed(1)+' °C';
+  document.getElementById('val-wind').textContent=wind.toFixed(1)+' m/s';
+  document.getElementById('fill-solar').style.width=Math.min(solar/1000*100,100)+'%';
+  document.getElementById('fill-humid').style.width=Math.min(humid,100)+'%';
+  document.getElementById('fill-temp').style.width=Math.min((temp+10)/50*100,100)+'%';
+  document.getElementById('fill-wind').style.width=Math.min(wind/20*100,100)+'%';
 }
 
 /* ── Card System ── */
