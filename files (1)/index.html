@@ -224,7 +224,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 <script>
 const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
-let markerSeen=false, phAlpha=0, phase=0, tick=0;
+let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 let convergenceStart=null;
 
@@ -288,8 +288,6 @@ function stepParticles(){
 
   const CX1=W*0.05,CX2=W*0.95,CY1=H*0.09,CY2=H*0.91;
   const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
-  /* converging: marker seen, cards not yet open */
-  const converging=convergenceStart!==null&&!csOn;
 
   for(const pool of pools){
     const a=pool.attractor;
@@ -343,7 +341,7 @@ function stepParticles(){
   }
 
   /* Density check: call csStart when ≥90% of particles are inside card area */
-  if(converging&&performance.now()-convergenceStart>=8000){
+  if(converging){
     let total=0,inside=0;
     for(const pool of pools){
       for(const p of pool.particles){
@@ -351,7 +349,7 @@ function stepParticles(){
         if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
       }
     }
-    if(total>50&&inside/total>=0.9) csStart();
+    if(total>=200&&inside/total>=0.9) csStart();
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
@@ -624,11 +622,15 @@ function initAR(){
 
   marker.addEventListener('markerFound',()=>{
     markerSeen=true;
-    document.getElementById('sci').classList.add('on');
+    phActive=true;
+    converging=true;
     convergenceStart=performance.now();
+    document.getElementById('sci').classList.add('on');
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
+    phActive=false;
+    converging=false;
     convergenceStart=null;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
@@ -748,13 +750,14 @@ function csMotion(){
     last={x:a.x||0,y:a.y||0,z:a.z||0};
     if(d<0.3){
       if(!csStill)csStill=performance.now();
-      else if(performance.now()-csStill>=2000)csStart();
+      /* static trigger disabled — density check only */
     }else{csStill=null;}
   });
 }
 
 function csStart(){
   if(csOn)return;
+  converging=false;
   csOn=true;csIdx=0;
   csCW=Math.min(window.innerWidth*0.9,340);
   csCH=Math.round(window.innerHeight*0.82);
@@ -960,10 +963,6 @@ function csWaitFinale(){
     else if(dy<-40)csNext();
   },{passive:true});
   ov.addEventListener('click',e=>{e.stopPropagation();csNext();});
-  document.body.addEventListener('click',e=>{
-    if(e.target.closest('#cs-overlay'))return;
-    if(phase>=2&&markerSeen&&!csOn)csStart();
-  });
 })();
 
 /* ── Finale ── */
