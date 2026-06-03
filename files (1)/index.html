@@ -256,16 +256,22 @@ class Particle {
     this.decay=0.0012+Math.random()*0.0008;
     this.wobble=Math.random()*TAU;
     this.wobbleSpeed=(Math.random()-0.5)*0.06;
+    this.tx=null; this.ty=null;
   }
   step(tick){
-    const spd=8*0.015;
-    this.wobble+=this.wobbleSpeed;
-    const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
-    const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
-    this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
-    this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-    const damp=(converging&&disperseStart&&performance.now()-disperseStart>5000)?0.85:0.97;
-    this.vx*=damp; this.vy*=damp;
+    if(this.tx!==null){
+      this.vx+=(this.tx-this.x)*0.05;
+      this.vy+=(this.ty-this.y)*0.05;
+      this.vx*=0.85; this.vy*=0.85;
+    } else {
+      const spd=8*0.015;
+      this.wobble+=this.wobbleSpeed;
+      const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
+      const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
+      this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
+      this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
+      this.vx*=0.97; this.vy*=0.97;
+    }
     this.x+=this.vx; this.y+=this.vy;
     this.life-=this.decay;
   }
@@ -290,10 +296,24 @@ function stepParticles(){
   const elapsed=disperseStart?performance.now()-disperseStart:0;
   const inConvPhase=converging&&elapsed>5000;
 
+  if(inConvPhase&&!window._targetsSet){
+    window._targetsSet=true;
+    const cardW=Math.min(window.innerWidth*0.9,340);
+    const cardH=window.innerHeight*0.82;
+    const CX1=(window.innerWidth-cardW)/2;
+    const CY1=window.innerHeight*0.09;
+    for(const pool of pools)
+      for(const p of pool.particles){
+        p.tx=CX1+Math.random()*cardW;
+        p.ty=CY1+Math.random()*cardH;
+      }
+  }
+  if(!inConvPhase) window._targetsSet=false;
+
   for(const pool of pools){
     const a=pool.attractor;
-    const ax=inConvPhase?W/2:(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
-    const ay=inConvPhase?H/2:(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
+    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
+    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
     if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
       for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
@@ -330,19 +350,6 @@ function stepParticles(){
     const CX2=CX1+cardW;
     const CY1=window.innerHeight*0.09;
     const CY2=CY1+cardH;
-    const CCX=(CX1+CX2)/2,CCY=(CY1+CY2)/2;
-
-    for(const pool of pools){
-      for(const p of pool.particles){
-        if(p.x<CX1) p.vx+=2.5;
-        if(p.x>CX2) p.vx-=2.5;
-        if(p.y<CY1) p.vy+=2.5;
-        if(p.y>CY2) p.vy-=2.5;
-        p.vx+=(CCX-p.x)*0.003;
-        p.vy+=(CCY-p.y)*0.003;
-      }
-    }
-
     let total=0,inside=0;
     for(const pool of pools)
       for(const p of pool.particles){
