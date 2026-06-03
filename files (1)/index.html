@@ -264,7 +264,8 @@ class Particle {
     const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
     this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
     this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-    this.vx*=0.97; this.vy*=0.97;
+    const damp=(converging&&disperseStart&&performance.now()-disperseStart>5000)?0.85:0.97;
+    this.vx*=damp; this.vy*=damp;
     this.x+=this.vx; this.y+=this.vy;
     this.life-=this.decay;
   }
@@ -286,10 +287,13 @@ function stepParticles(){
   phCtx.globalAlpha=phAlpha;
   tick++;
 
+  const elapsed=disperseStart?performance.now()-disperseStart:0;
+  const inConvPhase=converging&&elapsed>5000;
+
   for(const pool of pools){
     const a=pool.attractor;
-    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
-    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
+    const ax=inConvPhase?W/2:(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
+    const ay=inConvPhase?H/2:(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
     if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
       for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
@@ -319,8 +323,7 @@ function stepParticles(){
   }
 
   /* Convergence: wall push + density check after disperse phase */
-  const elapsed=disperseStart?performance.now()-disperseStart:0;
-  if(elapsed>5000&&converging){
+  if(inConvPhase){
     const cardW=Math.min(W*0.9,340);
     const cardH=H*0.82;
     const CX1=(W-cardW)/2,CX2=(W+cardW)/2;
