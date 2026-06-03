@@ -659,7 +659,6 @@ function arLoop(){
   stepParticles();
 
   if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
-  if(markerSeen && !motionStarted){ motionStarted=true; setTimeout(csInitMotion,10000); }
 }
 
 function startPhase3(){
