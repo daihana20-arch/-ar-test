@@ -264,8 +264,8 @@ class Particle {
       const dy=this.ty-this.y;
       const dist=Math.sqrt(dx*dx+dy*dy);
       if(dist>1){
-        this.x+=dx*0.005;
-        this.y+=dy*0.005;
+        this.x+=dx*0.0015;
+        this.y+=dy*0.0015;
       }
       return;
     } else {
@@ -324,7 +324,7 @@ function stepParticles(){
       for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
-    pool.particles=pool.particles.filter(p=>p.life>0);
+    pool.particles=pool.particles.filter(p=>p.life>0||p.tx!==null);
     for(const p of pool.particles){
       p.step(tick);
       if(csOn) p.decay=0.008;
@@ -646,6 +646,8 @@ function initAR(){
     converging=false;
     convergenceStart=null;
     disperseStart=null;
+    pools.forEach(p=>p.particles=[]);
+    window._targetsSet=false;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
