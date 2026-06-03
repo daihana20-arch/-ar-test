@@ -296,16 +296,10 @@ function stepParticles(){
     const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
     const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
 
-    if(phAlpha>0.1){
-      if(!converging&&!csOn&&pool.particles.length<500){
-        /* Normal: spawn at attractors */
-        for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
-      }else if(converging&&pool.particles.length<400){
-        /* Converging: spawn within card area to build density */
-        for(let i=0;i<7;i++) pool.particles.push(new Particle(
-          CX1+Math.random()*(CX2-CX1),
-          CY1+Math.random()*(CY2-CY1),pool.hue));
-      }
+    /* Always spawn at attractor positions — converging only applies boundary
+       forces, not spawn location. Avoids density check firing immediately. */
+    if(phAlpha>0.1&&!csOn&&pool.particles.length<500){
+      for(let i=0;i<11;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
     }
 
     pool.particles=pool.particles.filter(p=>p.life>0);
@@ -349,7 +343,7 @@ function stepParticles(){
   }
 
   /* Density check: call csStart when ≥90% of particles are inside card area */
-  if(converging){
+  if(converging&&performance.now()-convergenceStart>=8000){
     let total=0,inside=0;
     for(const pool of pools){
       for(const p of pool.particles){
