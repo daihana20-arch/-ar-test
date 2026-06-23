@@ -371,7 +371,7 @@ function stepParticles(){
         if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
       }
     if(tick%100===0) console.log('elapsed:',elapsed,'total:',total,'inside:',inside,'ratio:',inside/total);
-    if(!window._csTriggered&&phAlpha>=0.8&&total>=200&&inside/total>=0.85){window._csTriggered=true;csStart();}
+    if(!window._csTriggered&&total>=50&&inside/total>=0.6){window._csTriggered=true;csStart();}
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
@@ -657,6 +657,7 @@ function initAR(){
     disperseStart=null;
     pools.forEach(p=>p.particles=[]);
     window._targetsSet=false;
+    window._csTriggered=false;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
