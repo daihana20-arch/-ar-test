@@ -658,6 +658,8 @@ function initAR(){
     pools.forEach(p=>p.particles=[]);
     window._targetsSet=false;
     window._csTriggered=false;
+    csOn=false;
+    document.getElementById('cs-overlay').classList.remove('on');
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
   });
