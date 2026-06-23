@@ -232,166 +232,104 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 <script>
 const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
-let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
+let markerSeen=false, phase=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
-let convergenceStart=null, disperseStart=null;
-const IMG_SAMPLE_W=240, IMG_SAMPLE_H=320;
-let imgTargets=null;
-(function(){
-  const img=new Image();
-  img.onload=function(){
-    const tc=document.createElement('canvas');
-    tc.width=IMG_SAMPLE_W; tc.height=IMG_SAMPLE_H;
-    const tx=tc.getContext('2d');
-    tx.drawImage(img,0,0,IMG_SAMPLE_W,IMG_SAMPLE_H);
-    const pixels=tx.getImageData(0,0,IMG_SAMPLE_W,IMG_SAMPLE_H);
-    imgTargets=[];
-    for(let y=0;y<IMG_SAMPLE_H;y+=2){
-      for(let x=0;x<IMG_SAMPLE_W;x+=2){
-        const idx=(y*IMG_SAMPLE_W+x)*4;
-        const r=pixels.data[idx],g=pixels.data[idx+1],b=pixels.data[idx+2];
-        const brightness=Math.sqrt(r*r*0.299+g*g*0.587+b*b*0.114)/100;
-        if(brightness>0.3) imgTargets.push({x,y,r,g,b});
-      }
-    }
-  };
-  img.src='tree-scale.png';
-})();
+let frankRaf=null;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
 function resize(){W=phCv.width=window.innerWidth;H=phCv.height=window.innerHeight;}
 resize(); window.addEventListener('resize',resize);
 
-const FADE_IN=0.008, FADE_OUT=0.015;
-
-/* ── Particle Engine ── */
-const PI=Math.PI, TAU=PI*2;
-const attractors=[
-  {x:0.3,y:0.4,freq:0.007,phase:0},
-  {x:0.7,y:0.6,freq:0.011,phase:2.1},
-  {x:0.5,y:0.2,freq:0.005,phase:4.3},
-  {x:0.2,y:0.7,freq:0.009,phase:1.1},
-  {x:0.8,y:0.3,freq:0.013,phase:3.7},
-];
-
-class Particle {
-  constructor(ax,ay,hue){
-    this.x=ax+(Math.random()-0.5)*200;
-    this.y=ay+(Math.random()-0.5)*200;
-    this.vx=(Math.random()-0.5)*1.4;
-    this.vy=(Math.random()-0.5)*1.4;
-    this.hue=hue+Math.random()*40-20;
-    this.life=0.75+Math.random()*0.25;
-    this.decay=0.0012+Math.random()*0.0008;
-    this.wobble=Math.random()*TAU;
-    this.wobbleSpeed=(Math.random()-0.5)*0.06;
-    this.tx=null; this.ty=null;
-    this.targetColor=null;
-  }
-  step(tick){
-    if(this.tx!==null){
-      const dx=this.tx-this.x;
-      const dy=this.ty-this.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist>1){
-        this.wobble+=this.wobbleSpeed;
-        this.x+=dx*0.012+Math.sin(this.wobble)*0.8;
-        this.y+=dy*0.012+Math.cos(this.wobble)*0.8;
+/* ── Frank's Lab Particle System ── */
+function startFrankParticles(){
+  if(frankRaf){cancelAnimationFrame(frankRaf);frankRaf=null;}
+  phCtx.clearRect(0,0,phCv.width,phCv.height);
+  window._csTriggered=false;
+  const image=new Image();
+  image.src='tree-scale.png';
+  image.addEventListener('load',function(){
+    const canvas=phCv;
+    const ctx=phCtx;
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+    const numberOfParticles=3000;
+    const detail=2;
+    ctx.drawImage(image,
+      canvas.width/2-150,
+      canvas.height/2-200,
+      300,400);
+    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let grid=[];
+    for(let y=0;y<canvas.height;y+=detail){
+      let row=[];
+      for(let x=0;x<canvas.width;x+=detail){
+        const base=(y*4*pixels.width)+(x*4);
+        const r=pixels.data[base],g=pixels.data[base+1],b=pixels.data[base+2];
+        const color='rgb('+r+','+g+','+b+')';
+        const brightness=Math.sqrt(r*r*0.299+g*g*0.587+b*b*0.114)/100;
+        row.push([color,brightness]);
       }
-      return;
-    } else {
-      const spd=8*0.015;
-      this.wobble+=this.wobbleSpeed;
-      const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
-      const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
-      this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
-      this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-      this.vx*=0.97; this.vy*=0.97;
+      grid.push(row);
     }
-    this.x+=this.vx; this.y+=this.vy;
-    this.life-=this.decay;
-  }
-  draw(ctx,tick){
-    const a=Math.max(0,this.life);
-    if(this.targetColor){
-      ctx.fillStyle=`rgba(${this.targetColor.r},${this.targetColor.g},${this.targetColor.b},${(a*0.9).toFixed(2)})`;
-    }else{
-      ctx.fillStyle=`hsla(${this.hue+tick*0.2},72%,68%,${a*0.72})`;
-    }
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,Math.max(0.001,a*6),0,TAU);
-    ctx.fill();
-  }
-}
-
-const pools=attractors.map((a,i)=>({attractor:a,hue:i*72,particles:[]}));
-
-function stepParticles(){
-  phCtx.clearRect(0,0,W,H);
-  if(phAlpha<=0) return;
-  phCtx.save();
-  phCtx.globalAlpha=phAlpha;
-  tick++;
-
-  if(converging&&imgTargets&&imgTargets.length){
-    const offX=W/2-IMG_SAMPLE_W/2,offY=H/2-IMG_SAMPLE_H/2;
-    for(const pool of pools)
-      for(const p of pool.particles)
-        if(p.tx===null){
-          const t=imgTargets[Math.random()*imgTargets.length|0];
-          p.tx=offX+t.x; p.ty=offY+t.y;
-          p.targetColor={r:t.r,g:t.g,b:t.b};
+    class FParticle{
+      constructor(){
+        this.x=Math.random()*canvas.width;
+        this.y=canvas.height;
+        this.speed=0;
+        this.velocity=Math.random()*0.4;
+        this.size=Math.random()*2+0.5;
+        this.position1=Math.floor(this.y/detail);
+        this.position2=Math.floor(this.x/detail);
+        this.angle=0;
+      }
+      update(){
+        this.position1=Math.floor(this.y/detail);
+        this.position2=Math.floor(this.x/detail);
+        if(grid[this.position1]&&grid[this.position1][this.position2]){
+          this.speed=grid[this.position1][this.position2][1];
         }
-  }
-
-  for(const pool of pools){
-    const a=pool.attractor;
-    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
-    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
-
-    if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
-      for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
-    }
-
-    pool.particles=pool.particles.filter(p=>p.life>0||p.tx!==null);
-    for(const p of pool.particles){
-      p.step(tick);
-      if(csOn) p.decay=0.008;
-      p.draw(phCtx,tick);
-    }
-
-    phCtx.strokeStyle=`hsla(${pool.hue+tick*0.2},60%,70%,0.08)`;
-    phCtx.lineWidth=0.5;
-    const pts=pool.particles;
-    for(let i=0;i<pts.length;i++){
-      for(let j=i+1;j<pts.length;j++){
-        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y;
-        if(dx*dx+dy*dy<9025){
-          phCtx.beginPath();
-          phCtx.moveTo(pts[i].x,pts[i].y);
-          phCtx.lineTo(pts[j].x,pts[j].y);
-          phCtx.stroke();
+        this.angle+=this.speed/20;
+        let movement=(2.5-this.speed)+this.velocity;
+        this.y-=movement+Math.cos(this.angle)*2;
+        this.x+=Math.cos(this.angle)*2;
+        if(this.y<=0){this.y=canvas.height;this.x=Math.random()*canvas.width;}
+      }
+      draw(){
+        ctx.beginPath();
+        if(this.y>canvas.height-this.size*6) ctx.globalAlpha=0;
+        else ctx.globalAlpha=0.3;
+        if(grid[this.position1]&&grid[this.position1][this.position2]){
+          ctx.fillStyle=grid[this.position1][this.position2][0];
+        }else{
+          ctx.fillStyle='white';
         }
+        ctx.arc(this.x,this.y,this.size,0,2*Math.PI);
+        ctx.fill();
       }
     }
-  }
-
-  /* Landed particle check */
-  if(converging&&!window._csTriggered){
-    let total=0,landed=0;
-    for(const pool of pools)
-      for(const p of pool.particles){
-        total++;
-        if(p.tx!==null){const dx=p.x-p.tx,dy=p.y-p.ty;if(dx*dx+dy*dy<=25)landed++;}
+    let particlesArray=[];
+    for(let i=0;i<numberOfParticles;i++) particlesArray.push(new FParticle());
+    let frameCount=0;
+    function animate(){
+      frankRaf=requestAnimationFrame(animate);
+      ctx.globalAlpha=0.05;
+      ctx.fillStyle='rgb(0,0,0)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<particlesArray.length;i++){
+        particlesArray[i].update();
+        ctx.globalAlpha=particlesArray[i].speed*0.3;
+        particlesArray[i].draw();
       }
-    if(total>=50&&landed/total>=0.7){window._csTriggered=true;csStart();}
-  }
-
-  /* Reset convergenceStart once particles have fully faded post-card */
-  if(csOn&&pools.every(p=>p.particles.length===0)) convergenceStart=null;
-
-  phCtx.restore();
+      frameCount++;
+      if(frameCount>300&&!window._csTriggered){
+        window._csTriggered=true;
+        csStart();
+      }
+    }
+    animate();
+  });
 }
 
 /* ── Video + Canvas fullscreen fix ── */
@@ -658,19 +596,13 @@ function initAR(){
 
   marker.addEventListener('markerFound',()=>{
     markerSeen=true;
-    phActive=true;
-    disperseStart=performance.now();
     document.getElementById('sci').classList.add('on');
-    setTimeout(()=>{ converging=true; }, 15000);
+    startFrankParticles();
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
-    phActive=false;
-    converging=false;
-    convergenceStart=null;
-    disperseStart=null;
-    pools.forEach(p=>p.particles=[]);
-    window._targetsSet=false;
+    if(frankRaf){cancelAnimationFrame(frankRaf);frankRaf=null;}
+    phCtx.clearRect(0,0,phCv.width,phCv.height);
     window._csTriggered=false;
     csOn=false;
     document.getElementById('cs-overlay').classList.remove('on');
@@ -691,15 +623,6 @@ let p3started=false,motionStarted=false;
 function arLoop(){
   requestAnimationFrame(arLoop);
   if(phase<2) return;
-
-  if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
-  if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
-  if(!markerSeen && phAlpha<=0){
-    pools.forEach(p=>p.particles=[]);
-  }
-
-  stepParticles();
-
   if(markerSeen && !p3started){ p3started=true; }
 }
 
