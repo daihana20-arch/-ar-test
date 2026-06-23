@@ -235,6 +235,23 @@ let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 let convergenceStart=null, disperseStart=null;
+const CIRCLE_R=150;
+let deviceStill=true;
+(function(){
+  if(typeof DeviceMotionEvent==='undefined') return;
+  let _ss=[];
+  window.addEventListener('devicemotion',function(e){
+    const a=e.accelerationIncludingGravity||{};
+    const mag=Math.sqrt((a.x||0)*(a.x||0)+(a.y||0)*(a.y||0)+(a.z||0)*(a.z||0));
+    const now=performance.now();
+    _ss.push({t:now,v:mag});
+    _ss=_ss.filter(s=>now-s.t<1000);
+    if(_ss.length<8){deviceStill=false;return;}
+    const mn=Math.min.apply(null,_ss.map(s=>s.v));
+    const mx=Math.max.apply(null,_ss.map(s=>s.v));
+    deviceStill=mx-mn<0.5;
+  });
+})();
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -307,22 +324,12 @@ function stepParticles(){
   phCtx.globalAlpha=phAlpha;
   tick++;
 
-  const elapsed=disperseStart?performance.now()-disperseStart:0;
-  const inConvPhase=converging&&elapsed>5000;
-
-  if(inConvPhase&&!window._targetsSet){
-    window._targetsSet=true;
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CY1=window.innerHeight*0.09;
+  if(converging&&deviceStill){
+    const CX=W/2,CY=H/2;
     for(const pool of pools)
-      for(const p of pool.particles){
-        p.tx=CX1+Math.random()*cardW;
-        p.ty=CY1+Math.random()*cardH;
-      }
+      for(const p of pool.particles)
+        if(p.tx===null){const ang=Math.random()*TAU,r=Math.sqrt(Math.random())*CIRCLE_R;p.tx=CX+Math.cos(ang)*r;p.ty=CY+Math.sin(ang)*r;}
   }
-  if(!inConvPhase) window._targetsSet=false;
 
   for(const pool of pools){
     const a=pool.attractor;
@@ -356,28 +363,34 @@ function stepParticles(){
     }
   }
 
-  /* Convergence: wall push + density check after disperse phase */
-  if(inConvPhase){
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CX2=CX1+cardW;
-    const CY1=window.innerHeight*0.09;
-    const CY2=CY1+cardH;
+  /* Circle density check */
+  if(converging&&!window._csTriggered){
+    const CX=W/2,CY=H/2;
     let total=0,inside=0;
     for(const pool of pools)
       for(const p of pool.particles){
         total++;
-        if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
+        const dx=p.x-CX,dy=p.y-CY;
+        if(dx*dx+dy*dy<=CIRCLE_R*CIRCLE_R) inside++;
       }
-    if(tick%100===0) console.log('elapsed:',elapsed,'total:',total,'inside:',inside,'ratio:',inside/total);
-    if(!window._csTriggered&&total>=50&&inside/total>=0.6){window._csTriggered=true;csStart();}
+    if(total>=50&&inside/total>=0.7){window._csTriggered=true;csStart();}
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
   if(csOn&&pools.every(p=>p.particles.length===0)) convergenceStart=null;
 
   phCtx.restore();
+
+  if(converging){
+    const CX=W/2,CY=H/2;
+    phCtx.save();
+    phCtx.strokeStyle='rgba(255,255,255,0.3)';
+    phCtx.lineWidth=1.5;
+    phCtx.beginPath();
+    phCtx.arc(CX,CY,CIRCLE_R,0,TAU);
+    phCtx.stroke();
+    phCtx.restore();
+  }
 }
 
 /* ── Video + Canvas fullscreen fix ── */
