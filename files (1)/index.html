@@ -371,7 +371,7 @@ function stepParticles(){
         if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
       }
     if(tick%100===0) console.log('elapsed:',elapsed,'total:',total,'inside:',inside,'ratio:',inside/total);
-    // if(phAlpha>=0.8&&total>=200&&inside/total>=0.85) csStart();
+    if(!window._csTriggered&&phAlpha>=0.8&&total>=200&&inside/total>=0.85){window._csTriggered=true;csStart();}
   }
 
   /* Reset convergenceStart once particles have fully faded post-card */
@@ -683,7 +683,7 @@ function arLoop(){
 
   stepParticles();
 
-  if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
+  if(markerSeen && !p3started){ p3started=true; }
 }
 
 function startPhase3(){
