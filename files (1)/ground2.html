@@ -1028,7 +1028,7 @@ function Particle(x, y) {
     min: getRandomFloat(2, 10),
     max: getRandomFloat(10, 100) / 10
   };
-  this.color = 'rgba(255, 240, 80, 0.08)';
+  this.color = 'rgba(255, 240, 80, 0.15)';
 }
 Particle.prototype.update = function() {
   const forceDirection = { x: getRandomFloat(-1, 1), y: getRandomFloat(-1, 1) };
