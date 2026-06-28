@@ -1118,10 +1118,10 @@ class GSmoke {
     const cx=W*0.5, cy=H*0.5;
     const color={r:0,g:180,b:220};
     this.emitters=[
-      new GEmitter({x:cx,y:cy,velX:1, velY:0, noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
-      new GEmitter({x:cx,y:cy,velX:-1,velY:0, noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
-      new GEmitter({x:cx,y:cy,velX:0, velY:1, noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
-      new GEmitter({x:cx,y:cy,velX:0, velY:-1,noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
+      new GEmitter({x:cx,y:cy,velX:1,  velY:1,  noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
+      new GEmitter({x:cx,y:cy,velX:-1, velY:-1, noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
+      new GEmitter({x:cx,y:cy,velX:1,  velY:-1, noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
+      new GEmitter({x:cx,y:cy,velX:-1, velY:1,  noiseCanvas:makeOctaveNoiseG(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0,width:W,height:H}),
     ];
   }
   update() {
