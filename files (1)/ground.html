@@ -1081,7 +1081,6 @@ class GEmitter {
     return this.noiseData[(~~x+~~y*this.width)*4+channel]/127-1.0;
   }
   update() {
-    if(this.x<0||this.x>this.width||this.y<0||this.y>this.height) return;
     this.x += this.velocity.x;
     this.y += this.velocity.y;
     let {vx,vy,width,height,color,maxAge,damping,noise,fuzz,intensity,spawn} = this;
