@@ -1012,139 +1012,127 @@ function startFinale(){
   requestAnimationFrame(fnDraw);
 }
 
-// ── SMOKE NETWORK ──
+// ── NETWORK SYSTEM ──
 let gActive = false, gAnimId = null;
 
-function fuzzy(range, base) {
-  return (base || 0) + (Math.random() - 0.5) * range * 2;
-}
-
-function makeNoise(w, h) {
-  let c = document.createElement('canvas'), x = c.getContext('2d');
-  c.width = w; c.height = h;
-  let d = x.getImageData(0,0,w,h);
-  for(let i=0;i<d.data.length;i+=4){
-    d.data[i]=Math.random()*255; d.data[i+1]=Math.random()*255;
-    d.data[i+2]=Math.random()*255; d.data[i+3]=255;
+class SmokeParticle {
+  constructor(x, y, radius) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.growth = 0.2;
   }
-  x.putImageData(d,0,0); return c;
+  update() { this.radius += this.growth; }
 }
 
-function makeOctaveNoise(w,h,oct){
-  let c=document.createElement('canvas'),x=c.getContext('2d');
-  c.width=w;c.height=h;
-  x.fillStyle='black';x.fillRect(0,0,w,h);
-  x.globalAlpha=1/oct;x.globalCompositeOperation='lighter';
-  for(let i=0;i<oct;i++){let n=makeNoise(w>>i,h>>i);x.drawImage(n,0,0,w,h);}
-  return c;
-}
-
-class SmokeEmitter {
-  constructor(options){
-    const W=gCanvas.width, H=gCanvas.height;
-    this.width=W;this.height=H;
-    this.maxAge=options.maxAge||300;
-    this.damping=options.damping||0.75;
-    this.exposure=options.exposure||0.05;
-    this.intensity=options.intensity||1.0;
-    this.noise=options.noise||1.0;
-    this.fuzz=options.fuzz||1.0;
-    this.spawn=options.spawn||5;
-    this.vx=options.vx||10;
-    this.vy=options.vy||10;
-    this.color=options.color||{r:25,g:100,b:75};
-    this.x=options.x||W/2;
-    this.y=options.y||H/2;
-    this.velocity={x:options.velX||0,y:options.velY||0};
-    this.noiseData=options.noiseCanvas.getContext('2d').getImageData(0,0,W,H).data;
-    this.particles=[];
-    this.eCanvas=document.createElement('canvas');
-    this.eCanvas.width=W;this.eCanvas.height=H;
-    this.eCtx=this.eCanvas.getContext('2d');
-    this.eCtx.fillStyle='black';
-    this.eCtx.fillRect(0,0,W,H);
-    this.imgdata=this.eCtx.getImageData(0,0,W,H);
-    this.data=this.imgdata.data;
-    this.eCtx.clearRect(0,0,W,H);
-    this.hdrdata=new Float32Array(this.data.length);
+class NetworkBranch {
+  constructor(x, y, angle, speed, generation=0) {
+    this.x = x; this.y = y;
+    this.angle = angle; this.speed = speed;
+    this.generation = generation;
+    this.isDead = false;
+    this.age = 0;
+    this.maxAge = Math.random() * 150 + 100;
   }
-  tonemap(n){return(1-Math.pow(2,-n*0.005*this.exposure))*255;}
-  getNoise(x,y,ch){return this.noiseData[(~~x+~~y*this.width)*4+ch]/127-1.0;}
-  update(){
-    const {vx,vy,width,height,color,maxAge,damping,noise,fuzz,intensity,spawn}=this;
-    const {r,g,b}=color;
-    for(let n=0;n<spawn;n++){
-      this.particles.push({vx:fuzzy(vx),vy:fuzzy(vy),x:this.x,y:this.y,age:0});
+  update(width, height, smokeArray) {
+    if (this.isDead) return;
+    this.age++;
+    this.angle += (Math.random() - 0.5) * 0.5;
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+    if (this.x < -50 || this.x > width+50 || this.y < -50 || this.y > height+50 || this.age > this.maxAge) {
+      this.isDead = true;
     }
-    let alive=[];
-    this.particles.forEach(p=>{
-      p.vx=p.vx*damping+this.getNoise(p.x,p.y,0)*4*noise+fuzzy(0.1)*fuzz;
-      p.vy=p.vy*damping+this.getNoise(p.x,p.y,1)*4*noise+fuzzy(0.1)*fuzz;
-      p.age++;
-      for(let i=0;i<10;i++){
-        p.x+=p.vx*0.1;p.y+=p.vy*0.1;
-        let idx=(~~p.x+~~p.y*width)*4;
-        if(idx>=0&&idx<this.data.length-3){
-          this.data[idx]=this.tonemap(this.hdrdata[idx]+=r*intensity);
-          this.data[idx+1]=this.tonemap(this.hdrdata[idx+1]+=g*intensity);
-          this.data[idx+2]=this.tonemap(this.hdrdata[idx+2]+=b*intensity);
-        }
-      }
-      if(p.age<maxAge)alive.push(p);
-    });
-    this.eCtx.putImageData(this.imgdata,0,0);
-    this.particles=alive;
+    if (this.age % 2 === 0) {
+      smokeArray.push(new SmokeParticle(this.x, this.y, Math.random()*8+4));
+    }
+  }
+  bifurcate() {
+    if (this.isDead || this.generation > 4) return null;
+    if (Math.random() < 0.015) {
+      const sign = Math.random() > 0.5 ? 1 : -1;
+      const newAngle = this.angle + (Math.random()*0.4+0.2)*sign;
+      return new NetworkBranch(this.x, this.y, newAngle, this.speed*0.9, this.generation+1);
+    }
+    return null;
   }
 }
 
-let smokeEmitters=[];
+class NetworkSystem {
+  constructor(cx, cy) {
+    this.centerX = cx; this.centerY = cy;
+    this.branches = []; this.smokeParticles = [];
+    this.init();
+  }
+  init() {
+    const baseAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
+    baseAngles.forEach(angle => {
+      const a = angle + (Math.random()-0.5)*0.2;
+      this.branches.push(new NetworkBranch(this.centerX, this.centerY, a, 2.5));
+    });
+  }
+  updateAndDraw(ctx, width, height) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0, 0, width, height);
 
-function initSmokeEmitters(){
-  const W=gCanvas.width,H=gCanvas.height;
-  const cx=W/2,cy=H/2;
-  const color={r:25,g:100,b:75};
-  smokeEmitters=[
-    new SmokeEmitter({x:cx,y:cy,velX:1, velY:0, noiseCanvas:makeOctaveNoise(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0}),
-    new SmokeEmitter({x:cx,y:cy,velX:-1,velY:0, noiseCanvas:makeOctaveNoise(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0}),
-    new SmokeEmitter({x:cx,y:cy,velX:0, velY:1, noiseCanvas:makeOctaveNoise(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0}),
-    new SmokeEmitter({x:cx,y:cy,velX:0, velY:-1,noiseCanvas:makeOctaveNoise(W,H,8),color,maxAge:300,damping:0.75,exposure:0.05,intensity:1.0}),
-  ];
+    ctx.globalCompositeOperation = 'source-over';
+    this.smokeParticles = this.smokeParticles.filter(p => {
+      p.update();
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0,180,216,0.15)';
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+      ctx.fill();
+      return p.radius <= 30;
+    });
+
+    ctx.globalCompositeOperation = 'lighter';
+    let newBranches = [];
+    this.branches = this.branches.filter(b => {
+      b.update(width, height, this.smokeParticles);
+      if (b.isDead) return false;
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0,255,255,1.0)';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = 'rgba(0,255,255,0.8)';
+      ctx.arc(b.x, b.y, 3, 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      const child = b.bifurcate();
+      if (child) newBranches.push(child);
+      return true;
+    });
+    this.branches = this.branches.concat(newBranches);
+    if (this.branches.length === 0) this.init();
+  }
 }
 
-function smokeUpdate(){
-  gCtx.globalCompositeOperation='destination-out';
-  gCtx.fillStyle='rgba(0,0,0,0.15)';
-  gCtx.fillRect(0,0,gCanvas.width,gCanvas.height);
-  gCtx.globalCompositeOperation='lighter';
-  smokeEmitters.forEach(e=>{
-    e.update();
-    gCtx.drawImage(e.eCanvas,0,0);
-  });
-}
+let networkSystem = null;
 
-// Smoke用canvas（HTML静的要素を参照）
+// Network用canvas（HTML静的要素を参照）
 const gCanvas = document.getElementById('smoke-canvas');
 const gCtx = gCanvas.getContext('2d');
 
-function startSmoke(){
-  gCanvas.width=window.innerWidth;
-  gCanvas.height=window.innerHeight;
-  gCanvas.style.display='block';
-  initSmokeEmitters();
-  function loop(){
-    if(!gActive)return;
-    smokeUpdate();
-    gAnimId=requestAnimationFrame(loop);
+function startSmoke() {
+  gCanvas.width = window.innerWidth;
+  gCanvas.height = window.innerHeight;
+  gCanvas.style.display = 'block';
+  networkSystem = new NetworkSystem(gCanvas.width/2, gCanvas.height/2);
+  gActive = true;
+  function loop() {
+    if (!gActive) return;
+    networkSystem.updateAndDraw(gCtx, gCanvas.width, gCanvas.height);
+    gAnimId = requestAnimationFrame(loop);
   }
-  gActive=true;
   loop();
 }
 
-function stopSmoke(){
-  gActive=false;
-  if(gAnimId)cancelAnimationFrame(gAnimId);
-  gCanvas.style.display='none';
-  gCtx.clearRect(0,0,gCanvas.width,gCanvas.height);
+function stopSmoke() {
+  gActive = false;
+  networkSystem = null;
+  if (gAnimId) cancelAnimationFrame(gAnimId);
+  gCanvas.style.display = 'none';
+  gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
 }
 
 /* ── Start ── */
