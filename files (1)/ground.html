@@ -228,6 +228,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 </div>
 
 <canvas id="cs-finale"></canvas>
+<canvas id="smoke-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);"></canvas>
 
 <script>
 const LAT=46.227222, LON=15.259167;
@@ -1149,31 +1150,22 @@ class SmokeSystem {
   }
 }
 
-// Smoke用canvas
-const smokeCanvas = document.createElement('canvas');
-smokeCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:30;pointer-events:none;display:none;';
-smokeCanvas.style.background = 'transparent';
-document.body.appendChild(smokeCanvas);
+// Smoke用canvas（HTML静的要素を参照）
+const gCanvas = document.getElementById('smoke-canvas');
+const gCtx = gCanvas.getContext('2d');
 
-function startSmoke() {
-  console.log('startSmoke called, smokeCanvas display:', smokeCanvas.style.display);
-  smokeActive = true;
-  smokeCanvas.style.display = 'block';
-  smokeInstance = new SmokeSystem(smokeCanvas);
-  function loop() {
-    if (!smokeActive) return;
-    smokeInstance.update();
-    smokeAnimId = requestAnimationFrame(loop);
-  }
-  loop();
+function startSmoke(){
+  gCanvas.width = window.innerWidth;
+  gCanvas.height = window.innerHeight;
+  gCanvas.style.display = 'block';
+  // テスト：赤い四角を描画
+  gCtx.fillStyle = 'red';
+  gCtx.fillRect(0, 0, 200, 200);
 }
 
-function stopSmoke() {
-  smokeActive = false;
-  if (smokeAnimId) cancelAnimationFrame(smokeAnimId);
-  smokeCanvas.style.display = 'none';
-  const ctx = smokeCanvas.getContext('2d');
-  ctx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
+function stopSmoke(){
+  gCanvas.style.display = 'none';
+  gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
 }
 
 /* ── Start ── */
