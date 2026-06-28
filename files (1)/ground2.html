@@ -1014,7 +1014,7 @@ function startFinale(){
 
 // ── Particle Trails ──
 const numberParticlesStart = 3000;
-const particleSpeed = 0.04;
+const particleSpeed = 0.015;
 const velocity = 0.98;
 
 let particles = [];
@@ -1026,7 +1026,7 @@ function Particle(x, y) {
     x: getRandomFloat(-5, 5) / 100,
     y: getRandomFloat(-5, 5) / 100,
     min: getRandomFloat(2, 10),
-    max: getRandomFloat(2, 8) / 10
+    max: getRandomFloat(1, 4) / 10
   };
   this.color = 'rgba(255, 240, 80, 0.8)';
 }
