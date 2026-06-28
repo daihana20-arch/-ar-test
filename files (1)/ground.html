@@ -1117,6 +1117,7 @@ class SmokeEmitter {
       }
       if (p.age < maxAge) alive.push(p);
     });
+    this.ctx.clearRect(0,0,this.width,this.height);
     this.ctx.putImageData(this.imgdata, 0, 0);
     this.particles = alive;
   }
@@ -1145,9 +1146,7 @@ class SmokeSystem {
 
   update() {
     const ctx = this.ctx, canvas = this.canvas;
-    ctx.globalCompositeOperation = 'normal';
-    ctx.fillStyle = 'rgba(0,0,0,0)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = 'lighter';
     this.emitters.forEach(e => {
       e.update();
