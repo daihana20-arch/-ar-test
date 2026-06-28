@@ -597,7 +597,7 @@ function initAR(){
   marker.addEventListener('markerFound',()=>{
     markerSeen=true;
     document.getElementById('sci').classList.add('on');
-    fetchWeatherAndStart();
+    startSmoke();
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
@@ -608,7 +608,7 @@ function initAR(){
     document.getElementById('cs-overlay').classList.remove('on');
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
-    stopNetwork();
+    stopSmoke();
   });
 
   scene.appendChild(marker);
@@ -1011,148 +1011,176 @@ function startFinale(){
   requestAnimationFrame(fnDraw);
 }
 
-// ── GROUND NETWORK ──
-let P_NEED=5, W_STRESS=3, LIGHT=8, SOIL=6;
-let netTips=[], netEdges=[], netParticles=[];
-let netAnimId=null, netActive=false;
-const netCanvas=document.createElement('canvas');
-netCanvas.id='net-canvas';
-netCanvas.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:10;pointer-events:none;';
-document.body.appendChild(netCanvas);
-const netCtx=netCanvas.getContext('2d');
-let NW=netCanvas.width=window.innerWidth;
-let NH=netCanvas.height=window.innerHeight;
-window.addEventListener('resize',()=>{ NW=netCanvas.width=window.innerWidth; NH=netCanvas.height=window.innerHeight; });
+// ── SMOKE NETWORK ──
+let smokeInstance = null;
+let smokeAnimId = null;
+let smokeActive = false;
 
-function nRootX(){ return NW/2; }
-function nRootY(){ return NH/2; }
-function carbonExport(){ return Math.max(0.02,(P_NEED/10)*(LIGHT/10)); }
-function pFlux(){ return carbonExport()*(SOIL/10)*(1-(W_STRESS/10)*0.6); }
-function wFlux(){ return 0.1+(W_STRESS/10)*0.9; }
-function growthSpeed(){ return 1.4+(1-SOIL/10)*1.2; }
-function branchRate(){ return 0.018+(1-SOIL/10)*0.018; }
-function maxTips(){ return Math.round(180+(1-SOIL/10)*200); }
-function particleRate(){ return carbonExport()*0.02; }
-function trunkScore(x,y){ return Math.max(0,1-Math.hypot(x-nRootX(),y-nRootY())/(Math.min(NW,NH)*0.62)); }
-function makeTip(x,y,angle,thick){ return {x,y,angle,thick,age:0,alive:true}; }
-function makeEdge(x1,y1,x2,y2,thick,ts){ return {x1,y1,x2,y2,thick,ts,age:0}; }
-
-function resetNetwork(){
-  netTips=[]; netEdges=[]; netParticles=[];
-  const rx=nRootX(), ry=nRootY();
-  for(let i=0;i<8;i++){
-    const a=-Math.PI*0.88+(i/7)*Math.PI*1.76;
-    netTips.push(makeTip(rx+Math.cos(a)*14,ry+Math.sin(a)*14,a,2.0));
-  }
+function fuzzy(range, base) {
+  return (base || 0) + (Math.random() - 0.5) * range * 2;
 }
 
-function updateNetwork(){
-  const spd=growthSpeed(), br=branchRate(), mt=maxTips();
-  const CE=carbonExport(), PF=pFlux(), WF=wFlux();
-  for(let t of netTips){
-    if(!t.alive)continue;
-    t.age+=0.016;
-    const ox=t.x,oy=t.y;
-    t.angle+=(Math.random()-0.5)*0.17;
-    t.x+=Math.cos(t.angle)*spd;
-    t.y+=Math.sin(t.angle)*spd;
-    if(t.x<4||t.x>NW-4||t.y<8||t.y>NH-8){t.alive=false;continue;}
-    const ts2=trunkScore(t.x,t.y);
-    netEdges.push(makeEdge(ox,oy,t.x,t.y,Math.max(0.4,t.thick*(0.55+ts2*2.0+PF*0.8)),ts2));
-    if(netTips.length<mt&&Math.random()<br){
-      const ba=t.angle+(Math.random()>0.5?1:-1)*(0.28+Math.random()*0.44);
-      netTips.push(makeTip(t.x,t.y,ba,Math.max(0.5,t.thick*0.72)));
+function makeNoise(width, height) {
+  let canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+  canvas.width = width;
+  canvas.height = height;
+  let imgData = ctx.getImageData(0, 0, width, height);
+  let data = imgData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.random() * 255;
+    data[i+1] = Math.random() * 255;
+    data[i+2] = Math.random() * 255;
+    data[i+3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+function makeOctaveNoise(width, height, octaves) {
+  let canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+  canvas.width = width;
+  canvas.height = height;
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = 1 / octaves;
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < octaves; i++) {
+    let oct = makeNoise(width >> i, height >> i);
+    ctx.drawImage(oct, 0, 0, width, height);
+  }
+  return canvas;
+}
+
+class SmokeEmitter {
+  constructor(options) {
+    const W = window.innerWidth, H = window.innerHeight;
+    this.width = W; this.height = H;
+    this.maxAge = options.maxAge || 300;
+    this.damping = options.damping || 0.75;
+    this.exposure = options.exposure || 0.05;
+    this.intensity = options.intensity || 1.0;
+    this.noise = options.noise || 1.0;
+    this.fuzz = options.fuzz || 1.0;
+    this.spawn = options.spawn || 5;
+    this.vx = options.vx || 10;
+    this.vy = options.vy || 10;
+    this.color = options.color || {r:25, g:100, b:75};
+    this.x = options.x || W/2;
+    this.y = options.y || H/2;
+    this.velocity = {x: options.velX || 0, y: options.velY || 0};
+
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = W; this.canvas.height = H;
+    this.ctx = this.canvas.getContext('2d');
+
+    this.noiseData = options.noiseCanvas.getContext('2d').getImageData(0,0,W,H).data;
+    this.particles = [];
+
+    this.ctx.fillStyle = 'black';
+    this.ctx.fillRect(0,0,W,H);
+    this.imgdata = this.ctx.getImageData(0,0,W,H);
+    this.data = this.imgdata.data;
+    this.ctx.clearRect(0,0,W,H);
+    this.hdrdata = new Float32Array(this.data.length);
+  }
+
+  tonemap(n) {
+    return (1 - Math.pow(2, -n * 0.005 * this.exposure)) * 255;
+  }
+
+  getNoise(x, y, ch) {
+    return this.noiseData[(~~x + ~~y * this.width) * 4 + ch] / 127 - 1.0;
+  }
+
+  update() {
+    const {vx, vy, width, height, color, maxAge, damping, noise, fuzz, intensity, spawn} = this;
+    const {r,g,b} = color;
+
+    for (let n = 0; n < spawn; n++) {
+      this.particles.push({vx: fuzzy(vx), vy: fuzzy(vy), x: this.x, y: this.y, age: 0});
     }
-    if(Math.random()<0.013){
-      for(let e of netEdges){
-        const mx=(e.x1+e.x2)/2,my=(e.y1+e.y2)/2;
-        if(Math.hypot(t.x-mx,t.y-my)<22&&Math.random()<0.22){
-          netEdges.push(makeEdge(t.x,t.y,mx,my,0.85,0.22));
-          t.alive=false;break;
+
+    let alive = [];
+    this.particles.forEach(p => {
+      p.vx = p.vx * damping + this.getNoise(p.x, p.y, 0) * 4 * noise + fuzzy(0.1) * fuzz;
+      p.vy = p.vy * damping + this.getNoise(p.x, p.y, 1) * 4 * noise + fuzzy(0.1) * fuzz;
+      p.age++;
+      for (let i = 0; i < 10; i++) {
+        p.x += p.vx * 0.1;
+        p.y += p.vy * 0.1;
+        let idx = (~~p.x + ~~p.y * width) * 4;
+        if (idx >= 0 && idx < this.data.length - 3) {
+          this.data[idx]   = this.tonemap(this.hdrdata[idx]   += r * intensity);
+          this.data[idx+1] = this.tonemap(this.hdrdata[idx+1] += g * intensity);
+          this.data[idx+2] = this.tonemap(this.hdrdata[idx+2] += b * intensity);
         }
       }
-    }
-  }
-  netTips=netTips.filter(t=>t.alive);
-  for(let e of netEdges){
-    e.age+=0.016;
-    if(e.age>1.2&&netParticles.length<700){
-      if(Math.random()<particleRate()*(e.ts+0.08)) spawnNetParticle(e,CE,PF,WF);
-    }
-  }
-  for(let p of netParticles){ p.progress+=p.speed; if(p.progress>=1)p.alive=false; }
-  netParticles=netParticles.filter(p=>p.alive);
-}
-
-function spawnNetParticle(edge,CE,PF,WF){
-  const total=CE+PF+WF*0.5;
-  let r=Math.random()*total;
-  let type,toRoot;
-  if(r<CE){type='C';toRoot=false;}
-  else if(r<CE+PF){type='P';toRoot=true;}
-  else{type='W';toRoot=true;}
-  const sx=toRoot?edge.x2:edge.x1,sy=toRoot?edge.y2:edge.y1;
-  const ex=toRoot?edge.x1:edge.x2,ey=toRoot?edge.y1:edge.y2;
-  const spd=(0.004+Math.random()*0.008)*(1+edge.ts*2.2);
-  const col=type==='C'?'#c878ff':type==='P'?'#4de8a0':'#50b8ff';
-  netParticles.push({sx,sy,ex,ey,progress:0,speed:spd,ts:edge.ts,size:1.2+edge.ts*1.8,col,alive:true});
-}
-
-function drawNetwork(){
-  netCtx.clearRect(0,0,NW,NH);
-  for(let e of netEdges){
-    const alpha=Math.min(1,e.age*0.55);
-    netCtx.beginPath(); netCtx.moveTo(e.x1,e.y1); netCtx.lineTo(e.x2,e.y2);
-    netCtx.lineWidth=Math.max(0.4,e.thick);
-    if(e.ts>0.52) netCtx.strokeStyle=`rgba(232,208,72,${alpha*(0.7+e.ts*0.3)})`;
-    else if(e.ts>0.22) netCtx.strokeStyle=`rgba(155,195,55,${alpha*0.72})`;
-    else netCtx.strokeStyle=`rgba(88,72,160,${alpha*0.62})`;
-    netCtx.stroke();
-  }
-  for(let p of netParticles){
-    const t=p.progress*p.progress*(3-2*p.progress);
-    const px=p.sx+(p.ex-p.sx)*t,py=p.sy+(p.ey-p.sy)*t;
-    netCtx.fillStyle=p.col;
-    netCtx.beginPath(); netCtx.arc(px,py,p.size,0,Math.PI*2); netCtx.fill();
-  }
-  for(let t of netTips){
-    netCtx.fillStyle='#d4f04a';
-    netCtx.beginPath(); netCtx.arc(t.x,t.y,2.2,0,Math.PI*2); netCtx.fill();
+      if (p.age < maxAge) alive.push(p);
+    });
+    this.ctx.putImageData(this.imgdata, 0, 0);
+    this.particles = alive;
   }
 }
 
-function netLoop(){
-  if(!netActive)return;
-  updateNetwork();
-  drawNetwork();
-  netAnimId=requestAnimationFrame(netLoop);
-}
-
-function startNetwork(){
-  netActive=true;
-  resetNetwork();
-  netLoop();
-}
-
-function stopNetwork(){
-  netActive=false;
-  if(netAnimId)cancelAnimationFrame(netAnimId);
-  netCtx.clearRect(0,0,NW,NH);
-}
-
-async function fetchWeatherAndStart(){
-  try{
-    const res=await fetch('https://api.open-meteo.com/v1/forecast?latitude=46.227222&longitude=15.259167&current=relative_humidity_2m,solar_radiation,et0_fao_evapotranspiration,soil_moisture_0_to_1cm&timezone=auto');
-    const d=await res.json();
-    const c=d.current;
-    LIGHT=Math.min(10,(c.solar_radiation||0)/100);
-    W_STRESS=Math.min(10,10-(c.relative_humidity_2m||50)/10);
-    P_NEED=Math.min(10,(c.soil_moisture_0_to_1cm||0.3)*10);
-    SOIL=Math.min(10,(c.et0_fao_evapotranspiration||0.3)/0.5*10);
-  }catch(e){
-    console.warn('Weather fetch failed, using defaults');
+class SmokeSystem {
+  constructor(canvas) {
+    const W = window.innerWidth, H = window.innerHeight;
+    canvas.width = W; canvas.height = H;
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    const cx = W/2, cy = H/2;
+    const nc1 = makeOctaveNoise(W, H, 8);
+    const nc2 = makeOctaveNoise(W, H, 8);
+    const nc3 = makeOctaveNoise(W, H, 8);
+    const nc4 = makeOctaveNoise(W, H, 8);
+    const color = {r:25, g:100, b:75};
+    // 4方向のEmitter（右・左・下・上）
+    this.emitters = [
+      new SmokeEmitter({x:cx, y:cy, velX:1,  velY:0,  noiseCanvas:nc1, color, maxAge:300, damping:0.75, exposure:0.05, intensity:1.0}),
+      new SmokeEmitter({x:cx, y:cy, velX:-1, velY:0,  noiseCanvas:nc2, color, maxAge:300, damping:0.75, exposure:0.05, intensity:1.0}),
+      new SmokeEmitter({x:cx, y:cy, velX:0,  velY:1,  noiseCanvas:nc3, color, maxAge:300, damping:0.75, exposure:0.05, intensity:1.0}),
+      new SmokeEmitter({x:cx, y:cy, velX:0,  velY:-1, noiseCanvas:nc4, color, maxAge:300, damping:0.75, exposure:0.05, intensity:1.0}),
+    ];
   }
-  startNetwork();
+
+  update() {
+    const ctx = this.ctx, canvas = this.canvas;
+    ctx.globalCompositeOperation = 'normal';
+    ctx.fillStyle = 'rgba(5,15,16,0.3)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'lighter';
+    this.emitters.forEach(e => {
+      e.update();
+      ctx.drawImage(e.canvas, 0, 0);
+    });
+  }
+}
+
+// Smoke用canvas
+const smokeCanvas = document.createElement('canvas');
+smokeCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:10;pointer-events:none;display:none;';
+document.body.appendChild(smokeCanvas);
+
+function startSmoke() {
+  smokeActive = true;
+  smokeCanvas.style.display = 'block';
+  smokeInstance = new SmokeSystem(smokeCanvas);
+  function loop() {
+    if (!smokeActive) return;
+    smokeInstance.update();
+    smokeAnimId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function stopSmoke() {
+  smokeActive = false;
+  if (smokeAnimId) cancelAnimationFrame(smokeAnimId);
+  smokeCanvas.style.display = 'none';
+  const ctx = smokeCanvas.getContext('2d');
+  ctx.clearRect(0, 0, smokeCanvas.width, smokeCanvas.height);
 }
 
 /* ── Start ── */
