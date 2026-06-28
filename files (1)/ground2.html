@@ -1013,7 +1013,7 @@ function startFinale(){
 }
 
 // ── Particle Trails ──
-const numberParticlesStart = 1000;
+const numberParticlesStart = 2000;
 const particleSpeed = 0.3;
 const velocity = 0.9;
 
@@ -1028,12 +1028,12 @@ function Particle(x, y) {
     min: getRandomFloat(2, 10),
     max: getRandomFloat(10, 100) / 10
   };
-  this.color = 'rgba(0, 220, 200, 0.05)';
+  this.color = 'rgba(0, 220, 200, 0.4)';
 }
 Particle.prototype.render = function() {
   p2Ctx.beginPath();
   p2Ctx.fillStyle = this.color;
-  p2Ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
+  p2Ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
   p2Ctx.fill();
 };
 Particle.prototype.update = function() {
@@ -1064,7 +1064,7 @@ function startSmoke() {
   function loop() {
     if (!p2Active) return;
     p2Ctx.globalCompositeOperation = 'destination-out';
-    p2Ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    p2Ctx.fillStyle = 'rgba(0,0,0,0.02)';
     p2Ctx.fillRect(0, 0, p2Canvas.width, p2Canvas.height);
     p2Ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < particles.length; i++) {
