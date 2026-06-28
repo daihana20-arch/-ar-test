@@ -1013,9 +1013,9 @@ function startFinale(){
 }
 
 // ── Particle Trails ──
-const numberParticlesStart = 2000;
-const particleSpeed = 0.3;
-const velocity = 0.9;
+const numberParticlesStart = 3000;
+const particleSpeed = 0.04;
+const velocity = 0.98;
 
 let particles = [];
 const getRandomFloat = (min, max) => (Math.random() * (max - min) + min);
@@ -1023,12 +1023,12 @@ const getRandomFloat = (min, max) => (Math.random() * (max - min) + min);
 function Particle(x, y) {
   this.x = x; this.y = y;
   this.vel = {
-    x: getRandomFloat(-20, 20) / 100,
-    y: getRandomFloat(-20, 20) / 100,
+    x: getRandomFloat(-5, 5) / 100,
+    y: getRandomFloat(-5, 5) / 100,
     min: getRandomFloat(2, 10),
-    max: getRandomFloat(10, 100) / 10
+    max: getRandomFloat(2, 8) / 10
   };
-  this.color = 'rgba(255, 240, 80, 0.6)';
+  this.color = 'rgba(255, 240, 80, 0.8)';
 }
 Particle.prototype.render = function() {
   p2Ctx.beginPath();
@@ -1064,7 +1064,7 @@ function startSmoke() {
   function loop() {
     if (!p2Active) return;
     p2Ctx.globalCompositeOperation = 'destination-out';
-    p2Ctx.fillStyle = 'rgba(0,0,0,0.008)';
+    p2Ctx.fillStyle = 'rgba(0,0,0,0.005)';
     p2Ctx.fillRect(0, 0, p2Canvas.width, p2Canvas.height);
     p2Ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < particles.length; i++) {
