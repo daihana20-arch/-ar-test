@@ -1086,6 +1086,7 @@ class SmokeEmitter {
 
   // hdrdataを更新してimgdataのdata配列に書き出す
   update(data) {
+    console.log('emitter update, particles:', this.particles.length, 'x:', this.x, 'y:', this.y);
     const {vx, vy, width, height, color, maxAge, damping, noise, fuzz, intensity, spawn} = this;
     const {r,g,b} = color;
 
@@ -1136,6 +1137,7 @@ class SmokeSystem {
   }
 
   update() {
+    console.log('SmokeSystem update, emitters:', this.emitters.length);
     const ctx = this.ctx, canvas = this.canvas;
     // 毎フレームクリア（透明）
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1154,6 +1156,7 @@ smokeCanvas.style.background = 'transparent';
 document.body.appendChild(smokeCanvas);
 
 function startSmoke() {
+  console.log('startSmoke called, smokeCanvas display:', smokeCanvas.style.display);
   smokeActive = true;
   smokeCanvas.style.display = 'block';
   smokeInstance = new SmokeSystem(smokeCanvas);
