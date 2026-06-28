@@ -1078,8 +1078,6 @@ class SmokeEmitter {
     this.noiseData = options.noiseCanvas.getContext('2d').getImageData(0,0,W,H).data;
     this.particles = [];
 
-    this.ctx.fillStyle = 'black';
-    this.ctx.fillRect(0,0,W,H);
     this.imgdata = this.ctx.getImageData(0,0,W,H);
     this.data = this.imgdata.data;
     this.ctx.clearRect(0,0,W,H);
@@ -1148,7 +1146,7 @@ class SmokeSystem {
   update() {
     const ctx = this.ctx, canvas = this.canvas;
     ctx.globalCompositeOperation = 'normal';
-    ctx.fillStyle = 'rgba(5,15,16,0.3)';
+    ctx.fillStyle = 'rgba(0,0,0,0)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.globalCompositeOperation = 'lighter';
     this.emitters.forEach(e => {
@@ -1161,6 +1159,7 @@ class SmokeSystem {
 // Smoke用canvas
 const smokeCanvas = document.createElement('canvas');
 smokeCanvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:10;pointer-events:none;display:none;';
+smokeCanvas.style.background = 'transparent';
 document.body.appendChild(smokeCanvas);
 
 function startSmoke() {
