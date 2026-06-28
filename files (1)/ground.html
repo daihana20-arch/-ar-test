@@ -228,7 +228,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 </div>
 
 <canvas id="cs-finale"></canvas>
-<canvas id="smoke-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);"></canvas>
+<canvas id="smoke-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);mix-blend-mode:screen;"></canvas>
 
 <script>
 const LAT=46.227222, LON=15.259167;
@@ -1112,7 +1112,7 @@ function initSmokeEmitters(){
 }
 
 function smokeUpdate(){
-  gCtx.globalCompositeOperation='normal';
+  gCtx.globalCompositeOperation='destination-out';
   gCtx.fillStyle='rgba(0,0,0,0.15)';
   gCtx.fillRect(0,0,gCanvas.width,gCanvas.height);
   gCtx.globalCompositeOperation='lighter';
