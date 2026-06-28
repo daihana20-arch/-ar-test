@@ -1015,44 +1015,32 @@ function startFinale(){
 // ── NETWORK SYSTEM ──
 let gActive = false, gAnimId = null;
 
-class SmokeParticle {
-  constructor(x, y, radius) {
-    this.x = x;
-    this.y = y;
-    this.radius = radius;
-    this.growth = 0.2;
-  }
-  update() { this.radius += this.growth; }
-}
-
 class NetworkBranch {
-  constructor(x, y, angle, speed, generation=0) {
+  constructor(x, y, angle, speed, generation = 0) {
     this.x = x; this.y = y;
+    this.prevX = x; this.prevY = y;
     this.angle = angle; this.speed = speed;
     this.generation = generation;
-    this.isDead = false;
-    this.age = 0;
-    this.maxAge = Math.random() * 150 + 100;
+    this.isDead = false; this.age = 0;
+    this.maxAge = Math.random() * 200 + 150;
   }
-  update(width, height, smokeArray) {
+  update(width, height) {
     if (this.isDead) return;
     this.age++;
-    this.angle += (Math.random() - 0.5) * 0.5;
+    this.prevX = this.x; this.prevY = this.y;
+    this.angle += (Math.random() - 0.5) * 0.4;
     this.x += Math.cos(this.angle) * this.speed;
     this.y += Math.sin(this.angle) * this.speed;
-    if (this.x < -50 || this.x > width+50 || this.y < -50 || this.y > height+50 || this.age > this.maxAge) {
+    if (this.x < -100 || this.x > width+100 || this.y < -100 || this.y > height+100 || this.age > this.maxAge) {
       this.isDead = true;
-    }
-    if (this.age % 2 === 0) {
-      smokeArray.push(new SmokeParticle(this.x, this.y, Math.random()*8+4));
     }
   }
   bifurcate() {
-    if (this.isDead || this.generation > 4) return null;
-    if (Math.random() < 0.015) {
+    if (this.isDead || this.generation > 5) return null;
+    if (Math.random() < 0.012) {
       const sign = Math.random() > 0.5 ? 1 : -1;
-      const newAngle = this.angle + (Math.random()*0.4+0.2)*sign;
-      return new NetworkBranch(this.x, this.y, newAngle, this.speed*0.9, this.generation+1);
+      const newAngle = this.angle + (Math.random()*0.5+0.2)*sign;
+      return new NetworkBranch(this.x, this.y, newAngle, this.speed*0.95, this.generation+1);
     }
     return null;
   }
@@ -1061,41 +1049,42 @@ class NetworkBranch {
 class NetworkSystem {
   constructor(cx, cy) {
     this.centerX = cx; this.centerY = cy;
-    this.branches = []; this.smokeParticles = [];
+    this.branches = [];
     this.init();
   }
   init() {
     const baseAngles = [0, Math.PI/2, Math.PI, Math.PI*3/2];
     baseAngles.forEach(angle => {
       const a = angle + (Math.random()-0.5)*0.2;
-      this.branches.push(new NetworkBranch(this.centerX, this.centerY, a, 2.5));
+      this.branches.push(new NetworkBranch(this.centerX, this.centerY, a, 2.0));
     });
   }
   updateAndDraw(ctx, width, height) {
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
     ctx.fillRect(0, 0, width, height);
 
     ctx.globalCompositeOperation = 'source-over';
-    this.smokeParticles = this.smokeParticles.filter(p => {
-      p.update();
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(0,180,216,0.15)';
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-      ctx.fill();
-      return p.radius <= 30;
+    ctx.strokeStyle = 'rgba(0,180,216,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    this.branches.forEach(b => {
+      ctx.moveTo(b.prevX, b.prevY);
+      ctx.lineTo(b.x, b.y);
     });
+    ctx.stroke();
 
     ctx.globalCompositeOperation = 'lighter';
     let newBranches = [];
     this.branches = this.branches.filter(b => {
-      b.update(width, height, this.smokeParticles);
+      b.update(width, height);
       if (b.isDead) return false;
       ctx.beginPath();
       ctx.fillStyle = 'rgba(0,255,255,1.0)';
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = 'rgba(0,255,255,0.8)';
-      ctx.arc(b.x, b.y, 3, 0, Math.PI*2);
+      ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
       ctx.fill();
       ctx.shadowBlur = 0;
       const child = b.bifurcate();
