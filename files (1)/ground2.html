@@ -1041,7 +1041,6 @@ Particle.prototype.update = function() {
 };
 
 let p2Active = false, p2AnimId = null;
-let offCanvas = null, offCtx = null;
 const p2Canvas = document.getElementById('p2-canvas');
 const p2Ctx = p2Canvas.getContext('2d');
 
@@ -1049,12 +1048,6 @@ function startSmoke() {
   p2Canvas.width = window.innerWidth;
   p2Canvas.height = window.innerHeight;
   p2Canvas.style.display = 'block';
-
-  offCanvas = document.createElement('canvas');
-  offCanvas.width = p2Canvas.width;
-  offCanvas.height = p2Canvas.height;
-  offCtx = offCanvas.getContext('2d');
-
   const cx = p2Canvas.width / 2;
   const cy = p2Canvas.height / 2;
   particles = [];
@@ -1064,12 +1057,16 @@ function startSmoke() {
   p2Active = true;
   function loop() {
     if (!p2Active) return;
+    p2Ctx.globalCompositeOperation = 'source-over';
+    p2Ctx.fillStyle = 'rgba(0,0,0,0.04)';
+    p2Ctx.fillRect(0, 0, p2Canvas.width, p2Canvas.height);
+    p2Ctx.globalCompositeOperation = 'lighter';
     for (let i = 0; i < particles.length; i++) {
       particles[i].update();
-      offCtx.beginPath();
-      offCtx.fillStyle = particles[i].color;
-      offCtx.arc(particles[i].x, particles[i].y, 1, 0, Math.PI * 2);
-      offCtx.fill();
+      p2Ctx.beginPath();
+      p2Ctx.fillStyle = particles[i].color;
+      p2Ctx.arc(particles[i].x, particles[i].y, 1, 0, Math.PI * 2);
+      p2Ctx.fill();
     }
     particles = particles.filter(p =>
       p.x >= 0 && p.x <= p2Canvas.width &&
@@ -1078,10 +1075,7 @@ function startSmoke() {
     while (particles.length < numberParticlesStart) {
       particles.push(new Particle(cx, cy));
     }
-    p2Ctx.clearRect(0, 0, p2Canvas.width, p2Canvas.height);
-    p2Ctx.globalAlpha = 0.85;
-    p2Ctx.drawImage(offCanvas, 0, 0);
-    p2Ctx.globalAlpha = 1.0;
+    p2Ctx.globalCompositeOperation = 'source-over';
     p2AnimId = requestAnimationFrame(loop);
   }
   loop();
@@ -1092,9 +1086,7 @@ function stopSmoke() {
   if (p2AnimId) cancelAnimationFrame(p2AnimId);
   p2Canvas.style.display = 'none';
   p2Ctx.clearRect(0, 0, p2Canvas.width, p2Canvas.height);
-  if (offCtx) offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
   particles = [];
-  offCanvas = null; offCtx = null;
 }
 
 /* ── Start ── */
