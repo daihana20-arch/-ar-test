@@ -1014,8 +1014,8 @@ function startFinale(){
 
 // ── Particle Trails ──
 const numberParticlesStart = 3000;
-const particleSpeed = 0.3;
-const velocity = 0.9;
+const particleSpeed = 0.15;
+const velocity = 0.92;
 
 let particles = [];
 const getRandomFloat = (min, max) => (Math.random() * (max - min) + min);
@@ -1028,14 +1028,8 @@ function Particle(x, y) {
     min: getRandomFloat(2, 10),
     max: getRandomFloat(10, 100) / 10
   };
-  this.color = 'rgba(255, 240, 80, 0.8)';
+  this.color = 'rgba(255, 240, 80, 0.08)';
 }
-Particle.prototype.render = function() {
-  p2Ctx.beginPath();
-  p2Ctx.fillStyle = this.color;
-  p2Ctx.arc(this.x, this.y, 1, 0, Math.PI * 2);
-  p2Ctx.fill();
-};
 Particle.prototype.update = function() {
   const forceDirection = { x: getRandomFloat(-1, 1), y: getRandomFloat(-1, 1) };
   if (Math.abs(this.vel.x + forceDirection.x) < this.vel.max) this.vel.x += forceDirection.x;
@@ -1047,6 +1041,7 @@ Particle.prototype.update = function() {
 };
 
 let p2Active = false, p2AnimId = null;
+let offCanvas = null, offCtx = null;
 const p2Canvas = document.getElementById('p2-canvas');
 const p2Ctx = p2Canvas.getContext('2d');
 
@@ -1054,6 +1049,12 @@ function startSmoke() {
   p2Canvas.width = window.innerWidth;
   p2Canvas.height = window.innerHeight;
   p2Canvas.style.display = 'block';
+
+  offCanvas = document.createElement('canvas');
+  offCanvas.width = p2Canvas.width;
+  offCanvas.height = p2Canvas.height;
+  offCtx = offCanvas.getContext('2d');
+
   const cx = p2Canvas.width / 2;
   const cy = p2Canvas.height / 2;
   particles = [];
@@ -1063,13 +1064,12 @@ function startSmoke() {
   p2Active = true;
   function loop() {
     if (!p2Active) return;
-    p2Ctx.globalCompositeOperation = 'destination-out';
-    p2Ctx.fillStyle = 'rgba(0,0,0,0.02)';
-    p2Ctx.fillRect(0, 0, p2Canvas.width, p2Canvas.height);
-    p2Ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < particles.length; i++) {
       particles[i].update();
-      particles[i].render();
+      offCtx.beginPath();
+      offCtx.fillStyle = particles[i].color;
+      offCtx.arc(particles[i].x, particles[i].y, 1, 0, Math.PI * 2);
+      offCtx.fill();
     }
     particles = particles.filter(p =>
       p.x >= 0 && p.x <= p2Canvas.width &&
@@ -1078,6 +1078,10 @@ function startSmoke() {
     while (particles.length < numberParticlesStart) {
       particles.push(new Particle(cx, cy));
     }
+    p2Ctx.clearRect(0, 0, p2Canvas.width, p2Canvas.height);
+    p2Ctx.globalAlpha = 0.85;
+    p2Ctx.drawImage(offCanvas, 0, 0);
+    p2Ctx.globalAlpha = 1.0;
     p2AnimId = requestAnimationFrame(loop);
   }
   loop();
@@ -1088,7 +1092,9 @@ function stopSmoke() {
   if (p2AnimId) cancelAnimationFrame(p2AnimId);
   p2Canvas.style.display = 'none';
   p2Ctx.clearRect(0, 0, p2Canvas.width, p2Canvas.height);
+  if (offCtx) offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
   particles = [];
+  offCanvas = null; offCtx = null;
 }
 
 /* ── Start ── */
