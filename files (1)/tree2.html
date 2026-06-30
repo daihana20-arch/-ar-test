@@ -626,6 +626,53 @@ void main(){
   requestAnimationFrame(btTick);
 }
 
+/* ── Perlin Noise Overlay Component ── */
+AFRAME.registerComponent('perlin-noise-overlay',{
+  init:function(){
+    const VS=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+    const FS=`precision mediump float;
+varying vec2 vUv;
+uniform float iTime;
+uniform float iOpacity;
+float hash(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float noise(vec2 p){
+  vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.-2.*f);
+  return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.+vec2(.3,.7);a*=.5;}return v;}
+void main(){
+  vec2 uv=vUv;
+  vec2 flowUv=uv+vec2(0.,-iTime*0.08);
+  float grain=fbm(vec2(uv.x*2.,uv.y*10.+iTime*0.04));
+  float vasc=fbm(flowUv*vec2(6.,3.));
+  vasc=smoothstep(.42,.62,vasc);
+  vec3 wood=vec3(.02,.08,.04);
+  vec3 water=vec3(.05,.45,.65);
+  vec3 sap=vec3(.5,.75,.15);
+  vec3 col=mix(wood,water,vasc*.8);
+  col=mix(col,sap,grain*.25);
+  float edge=smoothstep(0.,.12,uv.x)*smoothstep(1.,.88,uv.x);
+  col*=.35+edge*.65;
+  float pulse=fbm(vec2(uv.x*1.5,uv.y*5.-iTime*0.18));
+  col+=vec3(0.,.35,.55)*smoothstep(.62,.92,pulse)*.5;
+  float alpha=iOpacity*(.65+grain*.35)*edge;
+  gl_FragColor=vec4(col,alpha);}`;
+    this.shaderMat=new THREE.ShaderMaterial({
+      uniforms:{iTime:{value:0.},iOpacity:{value:1.}},
+      vertexShader:VS,fragmentShader:FS,
+      transparent:true,depthWrite:false,side:THREE.DoubleSide
+    });
+    const self=this;
+    this.el.addEventListener('object3dset',function(e){
+      if(e.detail.type==='mesh') self.el.getObject3D('mesh').material=self.shaderMat;
+    });
+    const mesh=this.el.getObject3D('mesh');
+    if(mesh) mesh.material=this.shaderMat;
+  },
+  tick:function(time){
+    this.shaderMat.uniforms.iTime.value=time/1000.;
+  }
+});
+
 /* ── AR Setup ── */
 let arMarkerEl=null;
 
@@ -661,6 +708,13 @@ function initAR(){
     document.getElementById('sci').classList.remove('on');
   });
 
+  const trunkPlane=document.createElement('a-plane');
+  trunkPlane.setAttribute('perlin-noise-overlay','');
+  trunkPlane.setAttribute('position','0 0.6 0');
+  trunkPlane.setAttribute('width','0.4');
+  trunkPlane.setAttribute('height','1.2');
+  marker.appendChild(trunkPlane);
+
   scene.appendChild(marker);
   const cam=document.createElement('a-entity');
   cam.setAttribute('camera','');
@@ -677,12 +731,6 @@ function arLoop(){
 
   if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
   if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
-  if(!markerSeen && phAlpha<=0){
-    pools.forEach(p=>p.particles=[]);
-  }
-
-  stepParticles();
-
   if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
 }
 
