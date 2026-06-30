@@ -639,44 +639,45 @@ void main(){gl_Position=vec4(pos[gl_VertexID],0.,1.);}`;
 
 const TRK_FS=`#version 300 es
 precision highp float;
-out vec4 outColor;
-uniform vec2  u_res;
+out vec4 fragColor;
 uniform float u_time;
+uniform float u_baseSpeed;
 uniform float u_turbulence;
 uniform float u_milk;
-uniform float u_baseSpeed;
 uniform vec3  u_baseColor;
+uniform vec2  u_res;
 uniform vec2  u_seed;
-float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+float hash(vec2 p){
+  p=p+u_seed;
+  return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
 float noise(vec2 p){
   vec2 i=floor(p);vec2 f=fract(p);
-  float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
-  vec2 u=f*f*(3.-2.*f);
-  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+  vec2 u=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i+vec2(0,0)),hash(i+vec2(1,0)),u.x),
+             mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
 float fbm(vec2 p){
-  float s=0.,amp=.5,freq=1.;
-  for(int i=0;i<5;i++){s+=amp*noise(p*freq);freq*=2.;amp*=.5;p+=vec2(37.,17.);}
-  return s;}
-vec2 domainWarp(vec2 p,float t){
-  float n1=fbm(p*1.7+t*0.06);
-  float n2=fbm(p*1.1-t*0.05);
-  return p+(vec2(n1,n2)-0.5)*(0.6+1.4*u_turbulence);}
-float ridgeLine(vec2 p,float thr){
-  return 1.0-smoothstep(0.0,thr,abs(fbm(p)-0.5));}
+  float v=0.0;float a=0.5;vec2 shift=vec2(100.0);
+  for(int i=0;i<5;++i){v+=a*noise(p);p=p*2.0+shift;a*=(0.4+u_turbulence*0.2);}
+  return v;}
 void main(){
-  float minr=min(u_res.x,u_res.y);
-  vec2 uv=(gl_FragCoord.xy-0.5*u_res)/minr;
-  vec2 p=uv*1.6+u_seed;
-  vec2 pw=domainWarp(p,u_time);
-  float flow=u_time*u_baseSpeed*8.0;
-  float r1=ridgeLine(pw*1.2 +vec2(0.,flow)              ,0.045);
-  float r2=ridgeLine(pw*2.8 +vec2(17.3,5.1)+vec2(0.,flow*1.3),0.030);
-  float r3=ridgeLine(pw*5.5 +vec2(3.7,11.9)+vec2(0.,flow*1.8),0.020);
-  float r=r1*0.60+r2*0.30+r3*0.10;
-  float pulse=0.9+0.1*sin(u_time*u_baseSpeed*18.0+p.y*4.0);
-  vec3 core=mix(u_baseColor*1.5,vec3(0.65,0.95,0.85),pow(r,1.8));
-  vec3 col=core*r*pulse*(0.75+u_milk*0.6);
-  outColor=vec4(col,1.0);}`;
+  vec2 uv=(gl_FragCoord.xy*2.0-u_res.xy)/min(u_res.x,u_res.y);
+  vec2 st=uv*vec2(2.5,1.5);
+  float flow=u_time*u_baseSpeed*5.0;
+  st.y-=flow;
+  vec2 q=vec2(fbm(st+vec2(0.0,0.0)),fbm(st+vec2(5.2,1.3)));
+  float pulse=sin(u_time*2.5+q.x*4.0)*0.25+0.75;
+  float n1=fbm(st+q*2.0+vec2(0.0,flow*0.2));
+  float trunk=smoothstep(0.0,1.0,1.0-abs(n1-0.5)*8.0)*0.6;
+  float n2=fbm(st*2.5-q*3.0);
+  float branch=smoothstep(0.0,1.0,1.0-abs(n2-0.5)*12.0)*0.4;
+  float n3=fbm(st*5.0+q*5.0);
+  float capillary=smoothstep(0.1,0.9,1.0-abs(n3-0.5)*20.0)*0.25;
+  float network=max(trunk,max(branch,capillary))*pulse;
+  float core=pow(max(network,0.0),12.0)*2.5*(u_milk*2.0);
+  float glow=pow(max(network,0.0),2.5)*1.2*(u_milk*2.5);
+  vec3 col=glow*u_baseColor+core*mix(u_baseColor,vec3(1.0),0.8);
+  col*=smoothstep(0.02,0.15,network);
+  fragColor=vec4(col,1.0);}`;
 
 function initTrunkGL(){
   trkGl=trkCv.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'low-power'});
