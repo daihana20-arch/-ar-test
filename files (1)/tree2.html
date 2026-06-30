@@ -228,6 +228,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 </div>
 
 <canvas id="cs-finale"></canvas>
+<canvas id="trunk-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);mix-blend-mode:screen;"></canvas>
 
 <script>
 const LAT=46.227222, LON=15.259167;
@@ -626,52 +627,119 @@ void main(){
   requestAnimationFrame(btTick);
 }
 
-/* ── Perlin Noise Overlay Component ── */
-AFRAME.registerComponent('perlin-noise-overlay',{
-  init:function(){
-    const VS=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-    const FS=`precision mediump float;
-varying vec2 vUv;
-uniform float iTime;
-uniform float iOpacity;
-float hash(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+/* ── Trunk WebGL2 Effect ── */
+const trkCv=document.getElementById('trunk-canvas');
+let trkGl=null,trkProg=null,trkU={},trkRaf=null,trkActive=false,trkT0=null;
+const TRK_SEED={x:(Math.random()*2-1)*5,y:(Math.random()*2-1)*5};
+
+const TRK_VS=`#version 300 es
+precision highp float;
+const vec2 pos[3]=vec2[](vec2(-1.,-1.),vec2(3.,-1.),vec2(-1.,3.));
+void main(){gl_Position=vec4(pos[gl_VertexID],0.,1.);}`;
+
+const TRK_FS=`#version 300 es
+precision highp float;
+out vec4 outColor;
+uniform vec2  u_res;
+uniform float u_time;
+uniform float u_turbulence;
+uniform float u_milk;
+uniform float u_baseSpeed;
+uniform vec3  u_baseColor;
+uniform vec2  u_seed;
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
 float noise(vec2 p){
-  vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.-2.*f);
-  return mix(mix(hash(i),hash(i+vec2(1,0)),u.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
-float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.+vec2(.3,.7);a*=.5;}return v;}
+  vec2 i=floor(p);vec2 f=fract(p);
+  float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
+  vec2 u=f*f*(3.-2.*f);
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}
+float fbm(vec2 p){
+  float s=0.,amp=.5,freq=1.;
+  for(int i=0;i<5;i++){s+=amp*noise(p*freq);freq*=2.;amp*=.5;p+=vec2(37.,17.);}
+  return s;}
+vec2 domainWarp(vec2 p,float t){
+  float n1=fbm(p*1.7+t*0.06);
+  float n2=fbm(p*1.1-t*0.05);
+  return p+(vec2(n1,n2)-0.5)*(0.6+1.4*u_turbulence);}
+vec3 palette(float t){
+  t=clamp(t,0.,1.);
+  vec3 deep=u_baseColor*0.55;
+  vec3 mid=u_baseColor;
+  vec3 light=mix(u_baseColor,vec3(0.78),0.65);
+  vec3 sage=vec3(0.85,0.95,0.80);
+  vec3 m1=mix(deep,mid,smoothstep(0.12,0.55,t));
+  vec3 m2=mix(light,sage,smoothstep(0.62,0.98,t));
+  return mix(m1,m2,smoothstep(0.50,0.95,t));}
 void main(){
-  vec2 uv=vUv;
-  vec2 flowUv=uv+vec2(0.,-iTime*0.08);
-  float grain=fbm(vec2(uv.x*2.,uv.y*10.+iTime*0.04));
-  float vasc=fbm(flowUv*vec2(6.,3.));
-  vasc=smoothstep(.42,.62,vasc);
-  vec3 wood=vec3(.02,.08,.04);
-  vec3 water=vec3(.05,.45,.65);
-  vec3 sap=vec3(.5,.75,.15);
-  vec3 col=mix(wood,water,vasc*.8);
-  col=mix(col,sap,grain*.25);
-  float edge=smoothstep(0.,.12,uv.x)*smoothstep(1.,.88,uv.x);
-  col*=.35+edge*.65;
-  float pulse=fbm(vec2(uv.x*1.5,uv.y*5.-iTime*0.18));
-  col+=vec3(0.,.35,.55)*smoothstep(.62,.92,pulse)*.5;
-  float alpha=iOpacity*(.65+grain*.35)*edge;
-  gl_FragColor=vec4(col,alpha);}`;
-    this.shaderMat=new THREE.ShaderMaterial({
-      uniforms:{iTime:{value:0.},iOpacity:{value:1.}},
-      vertexShader:VS,fragmentShader:FS,
-      transparent:true,depthWrite:false,side:THREE.DoubleSide
-    });
-    const self=this;
-    this.el.addEventListener('object3dset',function(e){
-      if(e.detail.type==='mesh') self.el.getObject3D('mesh').material=self.shaderMat;
-    });
-    const mesh=this.el.getObject3D('mesh');
-    if(mesh) mesh.material=this.shaderMat;
-  },
-  tick:function(time){
-    this.shaderMat.uniforms.iTime.value=time/1000.;
-  }
-});
+  float minr=min(u_res.x,u_res.y);
+  vec2 uv=(gl_FragCoord.xy-0.5*u_res)/minr;
+  vec2 p=uv*1.6+u_seed;
+  vec2 pw=domainWarp(p,u_time);
+  float f1=fbm(pw*1.2+u_time*u_baseSpeed);
+  float f2=fbm(pw*3.0-u_time*u_baseSpeed*1.7);
+  float field=mix(f1,f2,0.35);
+  float tf=smoothstep(0.2,0.92,field);
+  vec3 col=palette(tf);
+  col=mix(col,vec3(0.85,0.95,0.80),smoothstep(0.55,1.0,tf)*(0.02+0.98*u_milk));
+  outColor=vec4(col,1.0);}`;
+
+function initTrunkGL(){
+  trkGl=trkCv.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'low-power'});
+  if(!trkGl)return false;
+  const compile=(type,src)=>{
+    const sh=trkGl.createShader(type);
+    trkGl.shaderSource(sh,src);trkGl.compileShader(sh);return sh;};
+  trkProg=trkGl.createProgram();
+  trkGl.attachShader(trkProg,compile(trkGl.VERTEX_SHADER,TRK_VS));
+  trkGl.attachShader(trkProg,compile(trkGl.FRAGMENT_SHADER,TRK_FS));
+  trkGl.linkProgram(trkProg);trkGl.useProgram(trkProg);
+  trkU={
+    res:      trkGl.getUniformLocation(trkProg,'u_res'),
+    time:     trkGl.getUniformLocation(trkProg,'u_time'),
+    turb:     trkGl.getUniformLocation(trkProg,'u_turbulence'),
+    milk:     trkGl.getUniformLocation(trkProg,'u_milk'),
+    speed:    trkGl.getUniformLocation(trkProg,'u_baseSpeed'),
+    color:    trkGl.getUniformLocation(trkProg,'u_baseColor'),
+    seed:     trkGl.getUniformLocation(trkProg,'u_seed'),
+  };
+  trkGl.uniform2f(trkU.seed,TRK_SEED.x,TRK_SEED.y);
+  return true;
+}
+
+function trkSetUniforms(){
+  const wind=weather.wind||0;
+  const humid=weather.humidity||65;
+  const soil=weather.soilMoisture>0?weather.soilMoisture:humid/100*0.45;
+  const t=Math.min(soil/0.45,1);
+  trkGl.uniform1f(trkU.speed, 0.02+Math.min(wind/20,1)*0.16);
+  trkGl.uniform1f(trkU.milk,  0.10+Math.min(humid/100,1)*0.50);
+  trkGl.uniform1f(trkU.turb,  0.25+Math.min(wind/20,1)*0.50);
+  trkGl.uniform3f(trkU.color, 0.14+(0.03-0.14)*t, 0.22, 0.06+(0.42-0.06)*t);
+}
+
+function startTrunk(){
+  if(!trkGl&&!initTrunkGL())return;
+  trkCv.width=window.innerWidth;trkCv.height=window.innerHeight;
+  trkGl.viewport(0,0,trkCv.width,trkCv.height);
+  trkGl.uniform2f(trkU.res,trkCv.width,trkCv.height);
+  trkCv.style.display='block';
+  trkActive=true;
+  if(!trkT0)trkT0=performance.now();
+  (function loop(){
+    if(!trkActive)return;
+    trkGl.uniform1f(trkU.time,(performance.now()-trkT0)*0.001);
+    trkSetUniforms();
+    trkGl.drawArrays(trkGl.TRIANGLES,0,3);
+    trkRaf=requestAnimationFrame(loop);
+  })();
+}
+
+function stopTrunk(){
+  trkActive=false;
+  if(trkRaf){cancelAnimationFrame(trkRaf);trkRaf=null;}
+  trkCv.style.display='none';
+  if(trkGl)trkGl.clear(trkGl.COLOR_BUFFER_BIT);
+}
 
 /* ── AR Setup ── */
 let arMarkerEl=null;
@@ -695,6 +763,7 @@ function initAR(){
     disperseStart=performance.now();
     document.getElementById('sci').classList.add('on');
     setTimeout(()=>{ converging=true; }, 5000);
+    startTrunk();
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
@@ -706,14 +775,8 @@ function initAR(){
     window._targetsSet=false;
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
+    stopTrunk();
   });
-
-  const trunkPlane=document.createElement('a-plane');
-  trunkPlane.setAttribute('perlin-noise-overlay','');
-  trunkPlane.setAttribute('position','0 0.6 0');
-  trunkPlane.setAttribute('width','0.4');
-  trunkPlane.setAttribute('height','1.2');
-  marker.appendChild(trunkPlane);
 
   scene.appendChild(marker);
   const cam=document.createElement('a-entity');
@@ -728,9 +791,6 @@ let p3started=false,motionStarted=false;
 function arLoop(){
   requestAnimationFrame(arLoop);
   if(phase<2) return;
-
-  if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
-  if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
   if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
 }
 
