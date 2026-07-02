@@ -1078,11 +1078,14 @@ void main() {
     float finalIntensity = (1.0 - p_val) * uBrightness;
     vec3 colorZero = vec3(finalIntensity * 1.0, finalIntensity * 0.92, finalIntensity * 0.85);
     vec3 colorOne  = vec3(finalIntensity * 0.1, finalIntensity * 0.45, finalIntensity * 1.0);
-    gl_FragColor = vec4(mix(colorZero, colorOne, uColorMix), 1.0);
+    vec3 baseColor = mix(colorZero, colorOne, uColorMix);
+    float alpha = finalIntensity;
+    gl_FragColor = vec4(baseColor, alpha);
 }`;
 
 function initVeinGL(){
-  veinGl=veinCv.getContext('webgl',{antialias:false,alpha:false,powerPreference:'low-power'});
+  veinGl=veinCv.getContext('webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'})
+       ||veinCv.getContext('experimental-webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'});
   if(!veinGl)return false;
   function mkSh(t,src){const s=veinGl.createShader(t);veinGl.shaderSource(s,src);veinGl.compileShader(s);return s;}
   veinProg=veinGl.createProgram();
@@ -1102,6 +1105,9 @@ function initVeinGL(){
     bright:   veinGl.getUniformLocation(veinProg,'uBrightness'),
     colorMix: veinGl.getUniformLocation(veinProg,'uColorMix'),
   };
+  veinGl.enable(veinGl.BLEND);
+  veinGl.blendFunc(veinGl.SRC_ALPHA,veinGl.ONE);
+  veinGl.clearColor(0.0,0.0,0.0,0.0);
   return true;
 }
 
@@ -1124,6 +1130,7 @@ function startVein(){
   if(!veinT0)veinT0=performance.now();
   (function loop(){
     if(!veinActive)return;
+    veinGl.clear(veinGl.COLOR_BUFFER_BIT);
     veinGl.uniform1f(veinU.time,(performance.now()-veinT0)*0.001);
     veinSetUniforms();
     veinGl.drawArrays(veinGl.TRIANGLE_STRIP,0,4);
