@@ -228,157 +228,109 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 </div>
 
 <canvas id="cs-finale"></canvas>
-<canvas id="trunk-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);mix-blend-mode:screen;"></canvas>
+<canvas id="vein-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);mix-blend-mode:screen;"></canvas>
 
 <script>
 const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
-let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
+let markerSeen=false, phase=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
-let convergenceStart=null, disperseStart=null;
+let frankRaf=null;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
 function resize(){W=phCv.width=window.innerWidth;H=phCv.height=window.innerHeight;}
 resize(); window.addEventListener('resize',resize);
 
-const FADE_IN=0.008, FADE_OUT=0.015;
-
-/* ── Particle Engine ── */
-const PI=Math.PI, TAU=PI*2;
-const attractors=[
-  {x:0.3,y:0.4,freq:0.007,phase:0},
-  {x:0.7,y:0.6,freq:0.011,phase:2.1},
-  {x:0.5,y:0.2,freq:0.005,phase:4.3},
-  {x:0.2,y:0.7,freq:0.009,phase:1.1},
-  {x:0.8,y:0.3,freq:0.013,phase:3.7},
-];
-
-class Particle {
-  constructor(ax,ay,hue){
-    this.x=ax+(Math.random()-0.5)*200;
-    this.y=ay+(Math.random()-0.5)*200;
-    this.vx=(Math.random()-0.5)*1.4;
-    this.vy=(Math.random()-0.5)*1.4;
-    this.hue=hue+Math.random()*40-20;
-    this.life=0.75+Math.random()*0.25;
-    this.decay=0.0012+Math.random()*0.0008;
-    this.wobble=Math.random()*TAU;
-    this.wobbleSpeed=(Math.random()-0.5)*0.06;
-    this.tx=null; this.ty=null;
-  }
-  step(tick){
-    if(this.tx!==null){
-      const dx=this.tx-this.x;
-      const dy=this.ty-this.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist>1){
-        this.wobble+=this.wobbleSpeed;
-        this.x+=dx*0.012+Math.sin(this.wobble)*0.8;
-        this.y+=dy*0.012+Math.cos(this.wobble)*0.8;
+/* ── Frank's Lab Particle System ── */
+function startFrankParticles(){
+  if(frankRaf){cancelAnimationFrame(frankRaf);frankRaf=null;}
+  phCtx.clearRect(0,0,phCv.width,phCv.height);
+  window._csTriggered=false;
+  const image=new Image();
+  image.src='tree-scale.png';
+  image.addEventListener('load',function(){
+    const canvas=phCv;
+    const ctx=phCtx;
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+    const numberOfParticles=3000;
+    const detail=2;
+    ctx.drawImage(image,
+      canvas.width/2-150,
+      canvas.height/2-200,
+      300,400);
+    const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let grid=[];
+    for(let y=0;y<canvas.height;y+=detail){
+      let row=[];
+      for(let x=0;x<canvas.width;x+=detail){
+        const base=(y*4*pixels.width)+(x*4);
+        const r=pixels.data[base],g=pixels.data[base+1],b=pixels.data[base+2];
+        const color='rgb('+r+','+g+','+b+')';
+        const brightness=Math.sqrt(r*r*0.299+g*g*0.587+b*b*0.114)/100;
+        row.push([color,brightness]);
       }
-      return;
-    } else {
-      const spd=8*0.015;
-      this.wobble+=this.wobbleSpeed;
-      const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
-      const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
-      this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
-      this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-      this.vx*=0.97; this.vy*=0.97;
+      grid.push(row);
     }
-    this.x+=this.vx; this.y+=this.vy;
-    this.life-=this.decay;
-  }
-  draw(ctx,tick){
-    const a=Math.max(0,this.life);
-    ctx.fillStyle=`hsla(${this.hue+tick*0.2},72%,68%,${a*0.72})`;
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,Math.max(0.001,a*6),0,TAU);
-    ctx.fill();
-  }
-}
-
-const pools=attractors.map((a,i)=>({attractor:a,hue:i*72,particles:[]}));
-
-function stepParticles(){
-  phCtx.clearRect(0,0,W,H);
-  if(phAlpha<=0) return;
-  phCtx.save();
-  phCtx.globalAlpha=phAlpha;
-  tick++;
-
-  const elapsed=disperseStart?performance.now()-disperseStart:0;
-  const inConvPhase=converging&&elapsed>5000;
-
-  if(inConvPhase&&!window._targetsSet){
-    window._targetsSet=true;
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CY1=window.innerHeight*0.09;
-    for(const pool of pools)
-      for(const p of pool.particles){
-        p.tx=CX1+Math.random()*cardW;
-        p.ty=CY1+Math.random()*cardH;
+    class FParticle{
+      constructor(){
+        this.x=Math.random()*canvas.width;
+        this.y=canvas.height;
+        this.speed=0;
+        this.velocity=Math.random()*0.4;
+        this.size=Math.random()*2+0.5;
+        this.position1=Math.floor(this.y/detail);
+        this.position2=Math.floor(this.x/detail);
+        this.angle=0;
       }
-  }
-  if(!inConvPhase) window._targetsSet=false;
-
-  for(const pool of pools){
-    const a=pool.attractor;
-    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
-    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
-
-    if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
-      for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
-    }
-
-    pool.particles=pool.particles.filter(p=>p.life>0||p.tx!==null);
-    for(const p of pool.particles){
-      p.step(tick);
-      if(csOn) p.decay=0.008;
-      p.draw(phCtx,tick);
-    }
-
-    phCtx.strokeStyle=`hsla(${pool.hue+tick*0.2},60%,70%,0.08)`;
-    phCtx.lineWidth=0.5;
-    const pts=pool.particles;
-    for(let i=0;i<pts.length;i++){
-      for(let j=i+1;j<pts.length;j++){
-        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y;
-        if(dx*dx+dy*dy<9025){
-          phCtx.beginPath();
-          phCtx.moveTo(pts[i].x,pts[i].y);
-          phCtx.lineTo(pts[j].x,pts[j].y);
-          phCtx.stroke();
+      update(){
+        this.position1=Math.floor(this.y/detail);
+        this.position2=Math.floor(this.x/detail);
+        if(grid[this.position1]&&grid[this.position1][this.position2]){
+          this.speed=grid[this.position1][this.position2][1];
         }
+        this.angle+=this.speed/20;
+        let movement=(2.5-this.speed)+this.velocity;
+        this.y-=movement+Math.cos(this.angle)*2;
+        this.x+=Math.cos(this.angle)*2;
+        if(this.y<=0){this.y=canvas.height;this.x=Math.random()*canvas.width;}
+      }
+      draw(){
+        ctx.beginPath();
+        if(this.y>canvas.height-this.size*6) ctx.globalAlpha=0;
+        else ctx.globalAlpha=0.3;
+        if(grid[this.position1]&&grid[this.position1][this.position2]){
+          ctx.fillStyle=grid[this.position1][this.position2][0];
+        }else{
+          ctx.fillStyle='white';
+        }
+        ctx.arc(this.x,this.y,this.size,0,2*Math.PI);
+        ctx.fill();
       }
     }
-  }
-
-  /* Convergence: wall push + density check after disperse phase */
-  if(inConvPhase){
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CX2=CX1+cardW;
-    const CY1=window.innerHeight*0.09;
-    const CY2=CY1+cardH;
-    let total=0,inside=0;
-    for(const pool of pools)
-      for(const p of pool.particles){
-        total++;
-        if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
+    let particlesArray=[];
+    for(let i=0;i<numberOfParticles;i++) particlesArray.push(new FParticle());
+    let frameCount=0;
+    function animate(){
+      frankRaf=requestAnimationFrame(animate);
+      ctx.globalAlpha=0.05;
+      ctx.fillStyle='rgb(0,0,0)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<particlesArray.length;i++){
+        particlesArray[i].update();
+        ctx.globalAlpha=particlesArray[i].speed*0.3;
+        particlesArray[i].draw();
       }
-    if(tick%100===0) console.log('elapsed:',elapsed,'total:',total,'inside:',inside,'ratio:',inside/total);
-    // if(phAlpha>=0.8&&total>=200&&inside/total>=0.85) csStart();
-  }
-
-  /* Reset convergenceStart once particles have fully faded post-card */
-  if(csOn&&pools.every(p=>p.particles.length===0)) convergenceStart=null;
-
-  phCtx.restore();
+      frameCount++;
+      if(frameCount>300&&!window._csTriggered){
+        window._csTriggered=true;
+        csStart();
+      }
+    }
+    animate();
+  });
 }
 
 /* ── Video + Canvas fullscreen fix ── */
@@ -627,116 +579,6 @@ void main(){
   requestAnimationFrame(btTick);
 }
 
-/* ── Trunk WebGL2 Effect ── */
-const trkCv=document.getElementById('trunk-canvas');
-let trkGl=null,trkProg=null,trkU={},trkRaf=null,trkActive=false,trkT0=null;
-const TRK_SEED={x:(Math.random()*2-1)*5,y:(Math.random()*2-1)*5};
-
-const TRK_VS=`#version 300 es
-precision highp float;
-const vec2 pos[3]=vec2[](vec2(-1.,-1.),vec2(3.,-1.),vec2(-1.,3.));
-void main(){gl_Position=vec4(pos[gl_VertexID],0.,1.);}`;
-
-const TRK_FS=`#version 300 es
-precision highp float;
-out vec4 fragColor;
-uniform float u_time;
-uniform float u_baseSpeed;
-uniform float u_turbulence;
-uniform float u_milk;
-uniform vec3  u_baseColor;
-uniform vec2  u_res;
-uniform vec2  u_seed;
-float hash(vec2 p){
-  p=p+u_seed;
-  return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
-float noise(vec2 p){
-  vec2 i=floor(p);vec2 f=fract(p);
-  vec2 u=f*f*(3.0-2.0*f);
-  return mix(mix(hash(i+vec2(0,0)),hash(i+vec2(1,0)),u.x),
-             mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),u.x),u.y);}
-float fbm(vec2 p){
-  float v=0.0;float a=0.5;vec2 shift=vec2(100.0);
-  for(int i=0;i<5;++i){v+=a*noise(p);p=p*2.0+shift;a*=(0.4+u_turbulence*0.2);}
-  return v;}
-void main(){
-  vec2 uv=(gl_FragCoord.xy*2.0-u_res.xy)/min(u_res.x,u_res.y);
-  vec2 st=uv*vec2(2.5,1.5);
-  float flow=u_time*u_baseSpeed*5.0;
-  st.y-=flow;
-  vec2 q=vec2(fbm(st+vec2(0.0,0.0)),fbm(st+vec2(5.2,1.3)));
-  float pulse=sin(u_time*2.5+q.x*4.0)*0.25+0.75;
-  float n1=fbm(st+q*2.0+vec2(0.0,flow*0.2));
-  float trunk=smoothstep(0.0,1.0,1.0-abs(n1-0.5)*8.0)*0.6;
-  float n2=fbm(st*2.5-q*3.0);
-  float branch=smoothstep(0.0,1.0,1.0-abs(n2-0.5)*12.0)*0.4;
-  float n3=fbm(st*5.0+q*5.0);
-  float capillary=smoothstep(0.1,0.9,1.0-abs(n3-0.5)*20.0)*0.25;
-  float network=max(trunk,max(branch,capillary))*pulse;
-  float core=pow(max(network,0.0),12.0)*2.5*(u_milk*2.0);
-  float glow=pow(max(network,0.0),2.5)*1.2*(u_milk*2.5);
-  vec3 col=glow*u_baseColor+core*mix(u_baseColor,vec3(1.0),0.8);
-  col*=smoothstep(0.02,0.15,network);
-  fragColor=vec4(col,1.0);}`;
-
-function initTrunkGL(){
-  trkGl=trkCv.getContext('webgl2',{antialias:false,alpha:false,powerPreference:'low-power'});
-  if(!trkGl)return false;
-  const compile=(type,src)=>{
-    const sh=trkGl.createShader(type);
-    trkGl.shaderSource(sh,src);trkGl.compileShader(sh);return sh;};
-  trkProg=trkGl.createProgram();
-  trkGl.attachShader(trkProg,compile(trkGl.VERTEX_SHADER,TRK_VS));
-  trkGl.attachShader(trkProg,compile(trkGl.FRAGMENT_SHADER,TRK_FS));
-  trkGl.linkProgram(trkProg);trkGl.useProgram(trkProg);
-  trkU={
-    res:      trkGl.getUniformLocation(trkProg,'u_res'),
-    time:     trkGl.getUniformLocation(trkProg,'u_time'),
-    turb:     trkGl.getUniformLocation(trkProg,'u_turbulence'),
-    milk:     trkGl.getUniformLocation(trkProg,'u_milk'),
-    speed:    trkGl.getUniformLocation(trkProg,'u_baseSpeed'),
-    color:    trkGl.getUniformLocation(trkProg,'u_baseColor'),
-    seed:     trkGl.getUniformLocation(trkProg,'u_seed'),
-  };
-  trkGl.uniform2f(trkU.seed,TRK_SEED.x,TRK_SEED.y);
-  return true;
-}
-
-function trkSetUniforms(){
-  const wind=weather.wind||0;
-  const humid=weather.humidity||65;
-  const soil=weather.soilMoisture>0?weather.soilMoisture:humid/100*0.45;
-  const t=Math.min(soil/0.45,1);
-  trkGl.uniform1f(trkU.speed, 0.02+Math.min(wind/20,1)*0.16);
-  trkGl.uniform1f(trkU.milk,  0.10+Math.min(humid/100,1)*0.50);
-  trkGl.uniform1f(trkU.turb,  0.25+Math.min(wind/20,1)*0.50);
-  trkGl.uniform3f(trkU.color, 0.14+(0.03-0.14)*t, 0.22, 0.06+(0.42-0.06)*t);
-}
-
-function startTrunk(){
-  if(!trkGl&&!initTrunkGL())return;
-  trkCv.width=window.innerWidth;trkCv.height=window.innerHeight;
-  trkGl.viewport(0,0,trkCv.width,trkCv.height);
-  trkGl.uniform2f(trkU.res,trkCv.width,trkCv.height);
-  trkCv.style.display='block';
-  trkActive=true;
-  if(!trkT0)trkT0=performance.now();
-  (function loop(){
-    if(!trkActive)return;
-    trkGl.uniform1f(trkU.time,(performance.now()-trkT0)*0.001);
-    trkSetUniforms();
-    trkGl.drawArrays(trkGl.TRIANGLES,0,3);
-    trkRaf=requestAnimationFrame(loop);
-  })();
-}
-
-function stopTrunk(){
-  trkActive=false;
-  if(trkRaf){cancelAnimationFrame(trkRaf);trkRaf=null;}
-  trkCv.style.display='none';
-  if(trkGl)trkGl.clear(trkGl.COLOR_BUFFER_BIT);
-}
-
 /* ── AR Setup ── */
 let arMarkerEl=null;
 
@@ -755,23 +597,19 @@ function initAR(){
 
   marker.addEventListener('markerFound',()=>{
     markerSeen=true;
-    phActive=true;
-    disperseStart=performance.now();
     document.getElementById('sci').classList.add('on');
-    setTimeout(()=>{ converging=true; }, 5000);
-    startTrunk();
+    startVein();
   });
   marker.addEventListener('markerLost',()=>{
     markerSeen=false;
-    phActive=false;
-    converging=false;
-    convergenceStart=null;
-    disperseStart=null;
-    pools.forEach(p=>p.particles=[]);
-    window._targetsSet=false;
+    if(frankRaf){cancelAnimationFrame(frankRaf);frankRaf=null;}
+    phCtx.clearRect(0,0,phCv.width,phCv.height);
+    window._csTriggered=false;
+    csOn=false;
+    document.getElementById('cs-overlay').classList.remove('on');
     document.getElementById('hud').classList.remove('on');
     document.getElementById('sci').classList.remove('on');
-    stopTrunk();
+    stopVein();
   });
 
   scene.appendChild(marker);
@@ -787,7 +625,7 @@ let p3started=false,motionStarted=false;
 function arLoop(){
   requestAnimationFrame(arLoop);
   if(phase<2) return;
-  if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
+  if(markerSeen && !p3started){ p3started=true; }
 }
 
 function startPhase3(){
@@ -1172,6 +1010,113 @@ function startFinale(){
     }
   }
   requestAnimationFrame(fnDraw);
+}
+
+// ── VEIN SYSTEM (Ridged Turbulence Flow Noise — Shadertoy wtf3R2 variant) ──
+const veinCv=document.getElementById('vein-canvas');
+let veinGl=null,veinProg=null,veinU={},veinRaf=null,veinActive=false,veinT0=null;
+
+const VEIN_VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.,1.);}`;
+
+const VEIN_FS=`precision mediump float;
+uniform vec2  u_res;
+uniform float u_time;
+uniform float u_speed;
+uniform float u_bright;
+uniform float u_soil;
+
+mat2 rotM(float t){float c=cos(t),c1=cos(t+11.),c2=cos(t+33.);return mat2(c,c1,c2,c);}
+
+vec2 H(vec2 p){
+  vec2 b=2.0*fract(sin(p*mat2(127.1,311.7,269.5,183.3))*1e4)-1.0;
+  float dir=sign(mod(p.x,2.0)-0.5)*sign(mod(p.y,2.0)-0.5);
+  return rotM(u_time*dir)*b;}
+
+float N(vec2 V){
+  vec2 i=floor(V),f=fract(V);
+  vec2 u=f*f*(3.0-2.0*f);
+  return mix(
+    mix(dot(H(i+vec2(0.,0.)),f),
+        dot(H(i+vec2(1.,0.)),f-vec2(1.,0.)),u.x),
+    mix(dot(H(i+vec2(0.,1.)),f-vec2(0.,1.)),
+        dot(H(i+vec2(1.,1.)),f-vec2(1.,1.)),u.x),u.y);}
+
+float turbulence(vec2 V){
+  mat2 m=mat2(1.6,1.2,-1.2,1.6);
+  float f=0.,a=0.5;
+  for(int i=0;i<4;i++){f+=a*4.0*abs(N(V));V=m*V;a*=0.5;}
+  return f;}
+
+void main(){
+  vec2 uv=gl_FragCoord.xy/u_res;
+  vec2 V=uv*3.5;
+  V.y-=u_time*(0.05+u_speed*0.25);
+  V.x+=u_time*u_speed*0.05;
+  float n=clamp(turbulence(V)*0.38,0.,1.);
+  float s=clamp(u_soil,0.,1.);
+  vec3 col=mix(vec3(1.0,0.88,0.62),vec3(0.10,0.40,1.00),s)*n;
+  float bright=0.35+clamp(u_bright,0.,1.)*0.85;
+  col*=bright;
+  float alpha=clamp(n*bright,0.,1.);
+  gl_FragColor=vec4(col,alpha);}`;
+
+function initVeinGL(){
+  veinGl=veinCv.getContext('webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'});
+  if(!veinGl)return false;
+  function mkSh(t,src){const s=veinGl.createShader(t);veinGl.shaderSource(s,src);veinGl.compileShader(s);return s;}
+  veinProg=veinGl.createProgram();
+  veinGl.attachShader(veinProg,mkSh(veinGl.VERTEX_SHADER,VEIN_VS));
+  veinGl.attachShader(veinProg,mkSh(veinGl.FRAGMENT_SHADER,VEIN_FS));
+  veinGl.linkProgram(veinProg);veinGl.useProgram(veinProg);
+  const buf=veinGl.createBuffer();
+  veinGl.bindBuffer(veinGl.ARRAY_BUFFER,buf);
+  veinGl.bufferData(veinGl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),veinGl.STATIC_DRAW);
+  const aPos=veinGl.getAttribLocation(veinProg,'a_pos');
+  veinGl.enableVertexAttribArray(aPos);
+  veinGl.vertexAttribPointer(aPos,2,veinGl.FLOAT,false,0,0);
+  veinU={
+    res:   veinGl.getUniformLocation(veinProg,'u_res'),
+    time:  veinGl.getUniformLocation(veinProg,'u_time'),
+    speed: veinGl.getUniformLocation(veinProg,'u_speed'),
+    bright:veinGl.getUniformLocation(veinProg,'u_bright'),
+    soil:  veinGl.getUniformLocation(veinProg,'u_soil'),
+  };
+  veinGl.enable(veinGl.BLEND);
+  veinGl.blendFunc(veinGl.ONE,veinGl.ONE_MINUS_SRC_ALPHA);
+  return true;
+}
+
+function veinSetUniforms(){
+  const wind=weather.wind||0;
+  const humid=weather.humidity||65;
+  const soil=weather.soilMoisture>0?weather.soilMoisture:humid/100*0.45;
+  veinGl.uniform1f(veinU.speed,  Math.min(wind/20,1));
+  veinGl.uniform1f(veinU.bright, Math.min(humid/100,1));
+  veinGl.uniform1f(veinU.soil,   Math.min(soil/0.6,1));
+}
+
+function startVein(){
+  if(!veinGl&&!initVeinGL())return;
+  veinCv.width=window.innerWidth;veinCv.height=window.innerHeight;
+  veinGl.viewport(0,0,veinCv.width,veinCv.height);
+  veinGl.uniform2f(veinU.res,veinCv.width,veinCv.height);
+  veinCv.style.display='block';
+  veinActive=true;
+  if(!veinT0)veinT0=performance.now();
+  (function loop(){
+    if(!veinActive)return;
+    veinGl.uniform1f(veinU.time,(performance.now()-veinT0)*0.001);
+    veinSetUniforms();
+    veinGl.drawArrays(veinGl.TRIANGLE_STRIP,0,4);
+    veinRaf=requestAnimationFrame(loop);
+  })();
+}
+
+function stopVein(){
+  veinActive=false;
+  if(veinRaf){cancelAnimationFrame(veinRaf);veinRaf=null;}
+  veinCv.style.display='none';
+  if(veinGl)veinGl.clear(veinGl.COLOR_BUFFER_BIT);
 }
 
 /* ── Start ── */
