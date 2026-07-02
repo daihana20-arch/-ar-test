@@ -1014,7 +1014,7 @@ function startFinale(){
 
 // ── VEIN SYSTEM (Ridged Turbulence Flow Noise — Shadertoy wtf3R2 variant) ──
 const veinCv=document.getElementById('vein-canvas');
-let veinGl=null,veinProg=null,veinU={},veinRaf=null,veinActive=false,veinT0=null;
+let veinGl=null,veinProg=null,veinU={},veinRaf=null,veinActive=false,veinT0=null,veinGrowStart=null,veinBaseBright=0.85;
 
 const VEIN_VS=`attribute vec2 position;
 void main() {
@@ -1026,7 +1026,8 @@ uniform vec2 iResolution;
 uniform float iTime;
 uniform float uSpeed;
 uniform float uBrightness;
-uniform float uColorMix;
+uniform float veinThreshold;
+uniform vec3  uVeinColor;
 
 vec2 hash2(vec2 p) {
     p = mod(p, 1000.0);
@@ -1075,10 +1076,9 @@ void main() {
     V *= m; p_val += perlinNoise(V, t) / 4.0;
     V *= m; p_val += perlinNoise(V, t) / 8.0;
     p_val /= 2.0;
-    float finalIntensity = (1.0 - p_val) * uBrightness;
-    vec3 colorZero = vec3(finalIntensity * 1.0, finalIntensity * 0.92, finalIntensity * 0.85);
-    vec3 colorOne  = vec3(finalIntensity * 0.1, finalIntensity * 0.45, finalIntensity * 1.0);
-    vec3 baseColor = mix(colorZero, colorOne, uColorMix);
+    float lineIntensity = smoothstep(veinThreshold, veinThreshold + 0.05, p_val);
+    float finalIntensity = lineIntensity * uBrightness;
+    vec3 baseColor = uVeinColor;
     float alpha = finalIntensity;
     gl_FragColor = vec4(baseColor, alpha);
 }`;
@@ -1099,11 +1099,12 @@ function initVeinGL(){
   veinGl.enableVertexAttribArray(aPos);
   veinGl.vertexAttribPointer(aPos,2,veinGl.FLOAT,false,0,0);
   veinU={
-    res:      veinGl.getUniformLocation(veinProg,'iResolution'),
-    time:     veinGl.getUniformLocation(veinProg,'iTime'),
-    speed:    veinGl.getUniformLocation(veinProg,'uSpeed'),
-    bright:   veinGl.getUniformLocation(veinProg,'uBrightness'),
-    colorMix: veinGl.getUniformLocation(veinProg,'uColorMix'),
+    res:       veinGl.getUniformLocation(veinProg,'iResolution'),
+    time:      veinGl.getUniformLocation(veinProg,'iTime'),
+    speed:     veinGl.getUniformLocation(veinProg,'uSpeed'),
+    bright:    veinGl.getUniformLocation(veinProg,'uBrightness'),
+    thresh:    veinGl.getUniformLocation(veinProg,'veinThreshold'),
+    veinColor: veinGl.getUniformLocation(veinProg,'uVeinColor'),
   };
   veinGl.enable(veinGl.BLEND);
   veinGl.blendFunc(veinGl.SRC_ALPHA,veinGl.ONE);
@@ -1115,9 +1116,14 @@ function veinSetUniforms(){
   const wind=weather.wind||0;
   const humid=weather.humidity||65;
   const soil=weather.soilMoisture>0?weather.soilMoisture:humid/100*0.45;
-  veinGl.uniform1f(veinU.speed,    0.08+Math.min(wind/12,1)*0.35);
-  veinGl.uniform1f(veinU.bright,   0.35+Math.min(humid/100,1)*0.85);
-  veinGl.uniform1f(veinU.colorMix, Math.min(Math.max(soil,0),1));
+  const s=Math.min(Math.max(soil,0),1);
+  veinGl.uniform1f(veinU.speed, 0.08+Math.min(wind/12,1)*0.35);
+  veinBaseBright=0.35+Math.min(humid/100,1)*0.85;
+  // 乾燥=明るいシアン、湿潤=深いティール
+  veinGl.uniform3f(veinU.veinColor,
+    0.35*(1-s)+0.10*s,
+    0.85*(1-s)+0.65*s,
+    0.80*(1-s)+0.70*s);
 }
 
 function startVein(){
@@ -1127,12 +1133,28 @@ function startVein(){
   veinGl.uniform2f(veinU.res,veinCv.width,veinCv.height);
   veinCv.style.display='block';
   veinActive=true;
+  veinGrowStart=performance.now();
   if(!veinT0)veinT0=performance.now();
+  const GROW_DURATION=4000;
+  const PULSE_CYCLE=10000;
   (function loop(){
     if(!veinActive)return;
     veinGl.clear(veinGl.COLOR_BUFFER_BIT);
     veinGl.uniform1f(veinU.time,(performance.now()-veinT0)*0.001);
     veinSetUniforms();
+    // 成長アニメーション
+    const growElapsed=performance.now()-veinGrowStart;
+    const growProgress=Math.min(growElapsed/GROW_DURATION,1.0);
+    const eased=1-Math.pow(1-growProgress,3);
+    const currentThreshold=0.95-eased*(0.95-0.72);
+    veinGl.uniform1f(veinU.thresh,currentThreshold);
+    // 呼吸脈動（成長完了後のみ）
+    let pulse=1.0;
+    if(growProgress>=1.0){
+      const pulseT=(performance.now()%PULSE_CYCLE)/PULSE_CYCLE;
+      pulse=0.75+0.25*Math.sin(pulseT*Math.PI*2-Math.PI/2);
+    }
+    veinGl.uniform1f(veinU.bright,veinBaseBright*(growProgress>=1.0?pulse:1.0));
     veinGl.drawArrays(veinGl.TRIANGLE_STRIP,0,4);
     veinRaf=requestAnimationFrame(loop);
   })();
