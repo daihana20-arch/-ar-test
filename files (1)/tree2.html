@@ -1016,52 +1016,73 @@ function startFinale(){
 const veinCv=document.getElementById('vein-canvas');
 let veinGl=null,veinProg=null,veinU={},veinRaf=null,veinActive=false,veinT0=null;
 
-const VEIN_VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0.,1.);}`;
+const VEIN_VS=`attribute vec2 position;
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+}`;
 
-const VEIN_FS=`precision mediump float;
-uniform vec2  u_res;
-uniform float u_time;
-uniform float u_speed;
-uniform float u_bright;
-uniform float u_soil;
+const VEIN_FS=`precision highp float;
+uniform vec2 iResolution;
+uniform float iTime;
+uniform float uSpeed;
+uniform float uBrightness;
+uniform float uColorMix;
 
-mat2 rotM(float t){float c=cos(t),c1=cos(t+11.),c2=cos(t+33.);return mat2(c,c1,c2,c);}
+vec2 hash2(vec2 p) {
+    p = mod(p, 1000.0);
+    vec2 q = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+    return fract(sin(q) * 43758.5453123) * 2.0 - 1.0;
+}
 
-vec2 H(vec2 p){
-  vec2 b=2.0*fract(sin(p*mat2(127.1,311.7,269.5,183.3))*1e4)-1.0;
-  float dir=sign(mod(p.x,2.0)-0.5)*sign(mod(p.y,2.0)-0.5);
-  return rotM(u_time*dir)*b;}
+mat2 getRotationMatrix(vec2 p, float t) {
+    vec2 m = mod(p, 2.0);
+    float sx = m.x >= 0.5 ? 1.0 : -1.0;
+    float sy = m.y >= 0.5 ? 1.0 : -1.0;
+    float angle = t * sx * sy;
+    float c = cos(angle);
+    float s = sin(angle);
+    return mat2(c, s, -s, c);
+}
 
-float N(vec2 V){
-  vec2 i=floor(V),f=fract(V);
-  vec2 u=f*f*(3.0-2.0*f);
-  return mix(
-    mix(dot(H(i+vec2(0.,0.)),f),
-        dot(H(i+vec2(1.,0.)),f-vec2(1.,0.)),u.x),
-    mix(dot(H(i+vec2(0.,1.)),f-vec2(0.,1.)),
-        dot(H(i+vec2(1.,1.)),f-vec2(1.,1.)),u.x),u.y);}
+float perlinNoise(vec2 V, float t) {
+    vec2 C = floor(V);
+    vec2 v = smoothstep(0.0, 1.0, fract(V));
+    vec2 p00 = C + vec2(0.0, 0.0);
+    vec2 p10 = C + vec2(1.0, 0.0);
+    vec2 p01 = C + vec2(0.0, 1.0);
+    vec2 p11 = C + vec2(1.0, 1.0);
+    vec2 g00 = hash2(p00) * getRotationMatrix(p00, t);
+    vec2 g10 = hash2(p10) * getRotationMatrix(p10, t);
+    vec2 g01 = hash2(p01) * getRotationMatrix(p01, t);
+    vec2 g11 = hash2(p11) * getRotationMatrix(p11, t);
+    float x00 = dot(g00, V - p00);
+    float x10 = dot(g10, V - p10);
+    float x01 = dot(g01, V - p01);
+    float x11 = dot(g11, V - p11);
+    float mixY0 = mix(x00, x10, v.x);
+    float mixY1 = mix(x01, x11, v.x);
+    float n = mix(mixY0, mixY1, v.y);
+    return 0.5 + 0.5 * sin(4.0 * 6.28318530718 * n);
+}
 
-float turbulence(vec2 V){
-  mat2 m=mat2(1.6,1.2,-1.2,1.6);
-  float f=0.,a=0.5;
-  for(int i=0;i<4;i++){f+=a*4.0*abs(N(V));V=m*V;a*=0.5;}
-  return f;}
-
-void main(){
-  vec2 uv=gl_FragCoord.xy/u_res;
-  vec2 V=uv*3.5;
-  V.y-=u_time*(0.05+u_speed*0.25);
-  V.x+=u_time*u_speed*0.05;
-  float n=clamp(turbulence(V)*0.38,0.,1.);
-  float s=clamp(u_soil,0.,1.);
-  vec3 col=mix(vec3(1.0,0.88,0.62),vec3(0.10,0.40,1.00),s)*n;
-  float bright=0.35+clamp(u_bright,0.,1.)*0.85;
-  col*=bright;
-  float alpha=clamp(n*bright,0.,1.);
-  gl_FragColor=vec4(col,alpha);}`;
+void main() {
+    vec2 V = (gl_FragCoord.xy * 2.0 - iResolution.xy) / iResolution.y;
+    V *= 2.5;
+    float t = iTime * uSpeed;
+    mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+    float p_val = perlinNoise(V, t);
+    V *= m; p_val += perlinNoise(V, t) / 2.0;
+    V *= m; p_val += perlinNoise(V, t) / 4.0;
+    V *= m; p_val += perlinNoise(V, t) / 8.0;
+    p_val /= 2.0;
+    float finalIntensity = (1.0 - p_val) * uBrightness;
+    vec3 colorZero = vec3(finalIntensity * 1.0, finalIntensity * 0.92, finalIntensity * 0.85);
+    vec3 colorOne  = vec3(finalIntensity * 0.1, finalIntensity * 0.45, finalIntensity * 1.0);
+    gl_FragColor = vec4(mix(colorZero, colorOne, uColorMix), 1.0);
+}`;
 
 function initVeinGL(){
-  veinGl=veinCv.getContext('webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'});
+  veinGl=veinCv.getContext('webgl',{antialias:false,alpha:false,powerPreference:'low-power'});
   if(!veinGl)return false;
   function mkSh(t,src){const s=veinGl.createShader(t);veinGl.shaderSource(s,src);veinGl.compileShader(s);return s;}
   veinProg=veinGl.createProgram();
@@ -1071,18 +1092,16 @@ function initVeinGL(){
   const buf=veinGl.createBuffer();
   veinGl.bindBuffer(veinGl.ARRAY_BUFFER,buf);
   veinGl.bufferData(veinGl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),veinGl.STATIC_DRAW);
-  const aPos=veinGl.getAttribLocation(veinProg,'a_pos');
+  const aPos=veinGl.getAttribLocation(veinProg,'position');
   veinGl.enableVertexAttribArray(aPos);
   veinGl.vertexAttribPointer(aPos,2,veinGl.FLOAT,false,0,0);
   veinU={
-    res:   veinGl.getUniformLocation(veinProg,'u_res'),
-    time:  veinGl.getUniformLocation(veinProg,'u_time'),
-    speed: veinGl.getUniformLocation(veinProg,'u_speed'),
-    bright:veinGl.getUniformLocation(veinProg,'u_bright'),
-    soil:  veinGl.getUniformLocation(veinProg,'u_soil'),
+    res:      veinGl.getUniformLocation(veinProg,'iResolution'),
+    time:     veinGl.getUniformLocation(veinProg,'iTime'),
+    speed:    veinGl.getUniformLocation(veinProg,'uSpeed'),
+    bright:   veinGl.getUniformLocation(veinProg,'uBrightness'),
+    colorMix: veinGl.getUniformLocation(veinProg,'uColorMix'),
   };
-  veinGl.enable(veinGl.BLEND);
-  veinGl.blendFunc(veinGl.ONE,veinGl.ONE_MINUS_SRC_ALPHA);
   return true;
 }
 
@@ -1090,9 +1109,9 @@ function veinSetUniforms(){
   const wind=weather.wind||0;
   const humid=weather.humidity||65;
   const soil=weather.soilMoisture>0?weather.soilMoisture:humid/100*0.45;
-  veinGl.uniform1f(veinU.speed,  Math.min(wind/20,1));
-  veinGl.uniform1f(veinU.bright, Math.min(humid/100,1));
-  veinGl.uniform1f(veinU.soil,   Math.min(soil/0.6,1));
+  veinGl.uniform1f(veinU.speed,    0.08+Math.min(wind/12,1)*0.35);
+  veinGl.uniform1f(veinU.bright,   0.35+Math.min(humid/100,1)*0.85);
+  veinGl.uniform1f(veinU.colorMix, Math.min(Math.max(soil,0),1));
 }
 
 function startVein(){
