@@ -528,9 +528,7 @@ void main(){
     const gt=(now-t0)/1000;
     const mv=getMicVolume();
     smoothBreath+=(mv-smoothBreath)*0.15;
-    gl.uniform1f(uTime,gt);
-    gl.uniform1f(uBreath,smoothBreath);
-    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    if(gl){gl.uniform1f(uTime,gt);gl.uniform1f(uBreath,smoothBreath);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);}
     if(cycleT0!==null){
       const e=now-cycleT0;
       const completedCycles=Math.floor(e/CYCLE);
@@ -1087,11 +1085,13 @@ function initVeinGL(){
   veinGl=veinCv.getContext('webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'})
        ||veinCv.getContext('experimental-webgl',{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:'low-power'});
   if(!veinGl)return false;
-  function mkSh(t,src){const s=veinGl.createShader(t);veinGl.shaderSource(s,src);veinGl.compileShader(s);return s;}
+  function mkSh(t,src){const s=veinGl.createShader(t);veinGl.shaderSource(s,src);veinGl.compileShader(s);if(!veinGl.getShaderParameter(s,veinGl.COMPILE_STATUS))console.error('[vein shader]',veinGl.getShaderInfoLog(s));return s;}
   veinProg=veinGl.createProgram();
   veinGl.attachShader(veinProg,mkSh(veinGl.VERTEX_SHADER,VEIN_VS));
   veinGl.attachShader(veinProg,mkSh(veinGl.FRAGMENT_SHADER,VEIN_FS));
-  veinGl.linkProgram(veinProg);veinGl.useProgram(veinProg);
+  veinGl.linkProgram(veinProg);
+  if(!veinGl.getProgramParameter(veinProg,veinGl.LINK_STATUS)){console.error('[vein link]',veinGl.getProgramInfoLog(veinProg));return false;}
+  veinGl.useProgram(veinProg);
   const buf=veinGl.createBuffer();
   veinGl.bindBuffer(veinGl.ARRAY_BUFFER,buf);
   veinGl.bufferData(veinGl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),veinGl.STATIC_DRAW);
@@ -1127,44 +1127,48 @@ function veinSetUniforms(){
 }
 
 function startVein(){
-  if(!veinGl&&!initVeinGL())return;
-  veinCv.width=window.innerWidth;veinCv.height=window.innerHeight;
-  veinGl.viewport(0,0,veinCv.width,veinCv.height);
-  veinGl.uniform2f(veinU.res,veinCv.width,veinCv.height);
-  veinCv.style.display='block';
-  veinActive=true;
-  veinGrowStart=performance.now();
-  if(!veinT0)veinT0=performance.now();
-  const GROW_DURATION=4000;
-  const PULSE_CYCLE=10000;
-  (function loop(){
-    if(!veinActive)return;
-    veinGl.clear(veinGl.COLOR_BUFFER_BIT);
-    veinGl.uniform1f(veinU.time,(performance.now()-veinT0)*0.001);
-    veinSetUniforms();
-    // 成長アニメーション
-    const growElapsed=performance.now()-veinGrowStart;
-    const growProgress=Math.min(growElapsed/GROW_DURATION,1.0);
-    const eased=1-Math.pow(1-growProgress,3);
-    const currentThreshold=0.95-eased*(0.95-0.72);
-    veinGl.uniform1f(veinU.thresh,currentThreshold);
-    // 呼吸脈動（成長完了後のみ）
-    let pulse=1.0;
-    if(growProgress>=1.0){
-      const pulseT=(performance.now()%PULSE_CYCLE)/PULSE_CYCLE;
-      pulse=0.75+0.25*Math.sin(pulseT*Math.PI*2-Math.PI/2);
-    }
-    veinGl.uniform1f(veinU.bright,veinBaseBright*(growProgress>=1.0?pulse:1.0));
-    veinGl.drawArrays(veinGl.TRIANGLE_STRIP,0,4);
-    veinRaf=requestAnimationFrame(loop);
-  })();
+  try{
+    if(!veinGl&&!initVeinGL())return;
+    veinCv.width=window.innerWidth;veinCv.height=window.innerHeight;
+    veinGl.viewport(0,0,veinCv.width,veinCv.height);
+    veinGl.uniform2f(veinU.res,veinCv.width,veinCv.height);
+    veinCv.style.display='block';
+    veinActive=true;
+    veinGrowStart=performance.now();
+    if(!veinT0)veinT0=performance.now();
+    const GROW_DURATION=4000;
+    const PULSE_CYCLE=10000;
+    (function loop(){
+      if(!veinActive)return;
+      try{
+        veinGl.clear(veinGl.COLOR_BUFFER_BIT);
+        veinGl.uniform1f(veinU.time,(performance.now()-veinT0)*0.001);
+        veinSetUniforms();
+        const growElapsed=performance.now()-veinGrowStart;
+        const growProgress=Math.min(growElapsed/GROW_DURATION,1.0);
+        const eased=1-Math.pow(1-growProgress,3);
+        const currentThreshold=0.95-eased*(0.95-0.72);
+        veinGl.uniform1f(veinU.thresh,currentThreshold);
+        let pulse=1.0;
+        if(growProgress>=1.0){
+          const pulseT=(performance.now()%PULSE_CYCLE)/PULSE_CYCLE;
+          pulse=0.75+0.25*Math.sin(pulseT*Math.PI*2-Math.PI/2);
+        }
+        veinGl.uniform1f(veinU.bright,veinBaseBright*(growProgress>=1.0?pulse:1.0));
+        veinGl.drawArrays(veinGl.TRIANGLE_STRIP,0,4);
+      }catch(e){console.error('[vein loop]',e);}
+      veinRaf=requestAnimationFrame(loop);
+    })();
+  }catch(e){console.error('[startVein]',e);}
 }
 
 function stopVein(){
-  veinActive=false;
-  if(veinRaf){cancelAnimationFrame(veinRaf);veinRaf=null;}
-  veinCv.style.display='none';
-  if(veinGl)veinGl.clear(veinGl.COLOR_BUFFER_BIT);
+  try{
+    veinActive=false;
+    if(veinRaf){cancelAnimationFrame(veinRaf);veinRaf=null;}
+    veinCv.style.display='none';
+    if(veinGl)veinGl.clear(veinGl.COLOR_BUFFER_BIT);
+  }catch(e){console.error('[stopVein]',e);}
 }
 
 /* ── Start ── */
