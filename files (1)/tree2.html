@@ -1010,10 +1010,10 @@ function startFinale(){
   requestAnimationFrame(fnDraw);
 }
 
-// ── VEIN SYSTEM (Canvas 2D — dackmin Veins Generator faithful port) ──
+// ── VEIN SYSTEM (Canvas 2D — dackmin port + gradual growth + alpha ramp) ──
 const veinCv=document.getElementById('vein-canvas');
 let veinCtx=null,veinRaf=null,veinActive=false;
-let veinParticles=[],veinZoff=0;
+let veinParticles=[],veinZoff=0,veinFrame=0,veinResetTimer=null;
 
 // 3D Simplex Noise (Stefan Gustavson, compact inline)
 const _sn3=(()=>{
@@ -1053,8 +1053,9 @@ const _sn3=(()=>{
   };
 })();
 
-const VEIN_COLORS=["#710000","#920e0e","#be0707","#ea0a0a"];
-const VEIN_STEP=1,VEIN_BASE=300,VEIN_ZINC=0.0001,VEIN_NUM=1000;
+// Red palette as RGB tuples for rgba() alpha ramp
+const VEIN_COLORS_RGB=[[113,0,0],[146,14,14],[190,7,7],[234,10,10]];
+const VEIN_BASE=300,VEIN_ZINC=0.0001,VEIN_NUM=1000;
 
 function veinGetNoise(x,y,z){
   let amp=1,f=1,sum=0;
@@ -1065,39 +1066,57 @@ function veinGetNoise(x,y,z){
 function veinInitParticle(p,W,H){
   p.x=p.pastX=Math.random()*W;
   p.y=p.pastY=Math.random()*H;
+  p.alpha=0;
 }
 
 function startVein(){
   try{
     if(veinRaf){cancelAnimationFrame(veinRaf);veinRaf=null;}
-    const W=window.innerWidth,H=window.innerHeight;
-    veinCv.width=W;veinCv.height=H;
-    veinCtx=veinCv.getContext('2d');
-    veinCtx.clearRect(0,0,W,H);
-    veinCtx.lineWidth=0.3;
-    veinCtx.lineCap='round';
-    veinCtx.lineJoin='round';
-    veinCtx.globalAlpha=1;
+    if(veinResetTimer){clearTimeout(veinResetTimer);veinResetTimer=null;}
+    const isFresh=veinParticles.length===0;
+    if(isFresh){
+      const W=window.innerWidth,H=window.innerHeight;
+      veinCv.width=W;veinCv.height=H;
+      veinCtx=veinCv.getContext('2d');
+      veinCtx.clearRect(0,0,W,H);
+      veinCtx.lineWidth=0.3;
+      veinCtx.lineCap='round';
+      veinCtx.lineJoin='round';
+      veinCtx.globalAlpha=1;
+      veinZoff=0;veinFrame=0;
+      for(let i=0;i<3;i++){
+        const rgb=VEIN_COLORS_RGB[Math.floor(Math.random()*VEIN_COLORS_RGB.length)];
+        const p={x:0,y:0,pastX:0,pastY:0,r:rgb[0],g:rgb[1],b:rgb[2],alpha:0};
+        veinInitParticle(p,W,H);
+        veinParticles.push(p);
+      }
+    }
     veinCv.style.display='block';
     veinActive=true;
-    veinZoff=0;
-    veinParticles=[];
-    for(let i=0;i<VEIN_NUM;i++){
-      const p={x:0,y:0,pastX:0,pastY:0,color:VEIN_COLORS[Math.floor(Math.random()*VEIN_COLORS.length)]};
-      veinInitParticle(p,W,H);
-      veinParticles.push(p);
-    }
     (function loop(){
       if(!veinActive)return;
+      veinFrame++;
       const W2=veinCv.width,H2=veinCv.height;
+      // Humidity-modulated gradual particle addition
+      if(veinParticles.length<VEIN_NUM){
+        const interval=Math.max(1,Math.round(8/(0.6+(weather.humidity||65)/100*0.8)));
+        if(veinFrame%interval===0){
+          const rgb=VEIN_COLORS_RGB[Math.floor(Math.random()*VEIN_COLORS_RGB.length)];
+          const np={x:0,y:0,pastX:0,pastY:0,r:rgb[0],g:rgb[1],b:rgb[2],alpha:0};
+          veinInitParticle(np,W2,H2);
+          veinParticles.push(np);
+        }
+      }
+      const step=0.45+Math.min((weather.wind||0)/20,1)*0.25;
       for(let i=0;i<veinParticles.length;i++){
         const p=veinParticles[i];
         p.pastX=p.x;p.pastY=p.y;
         const angle=Math.PI*6*veinGetNoise(p.x/VEIN_BASE*1.75,p.y/VEIN_BASE*1.75,veinZoff);
-        p.x+=Math.cos(angle)*VEIN_STEP;
-        p.y+=Math.sin(angle)*VEIN_STEP;
+        p.x+=Math.cos(angle)*step;
+        p.y+=Math.sin(angle)*step;
+        if(p.alpha<1)p.alpha=Math.min(1,p.alpha+0.003);
         veinCtx.beginPath();
-        veinCtx.strokeStyle=p.color;
+        veinCtx.strokeStyle=`rgba(${p.r},${p.g},${p.b},${p.alpha.toFixed(3)})`;
         veinCtx.moveTo(p.pastX,p.pastY);
         veinCtx.lineTo(p.x,p.y);
         veinCtx.stroke();
@@ -1114,8 +1133,12 @@ function stopVein(){
     veinActive=false;
     if(veinRaf){cancelAnimationFrame(veinRaf);veinRaf=null;}
     veinCv.style.display='none';
-    if(veinCtx)veinCtx.clearRect(0,0,veinCv.width,veinCv.height);
-    veinParticles=[];
+    // Canvas content and particles preserved; full reset after 10s of marker absence
+    veinResetTimer=setTimeout(()=>{
+      veinResetTimer=null;
+      if(veinCtx)veinCtx.clearRect(0,0,veinCv.width,veinCv.height);
+      veinParticles=[];
+    },10000);
   }catch(e){console.error('[stopVein]',e);}
 }
 
