@@ -648,7 +648,6 @@ function initAR(){
   arMarkerEl=marker;
 
   marker.addEventListener('markerFound',()=>{
-    window._resetting=false;
     markerSeen=true;
     phActive=true;
     disperseStart=performance.now();
@@ -820,7 +819,7 @@ function csLaunchCard(){
     document.getElementById('cs-content').style.clipPath='none';
     const pb=document.getElementById('cs-pb-'+csIdx);
     if(pb){pb.classList.remove('active');pb.classList.add('done');pb.style.setProperty('--fill','100%');}
-    if(csIdx===CS_DATA.length-1)csWaitFinale();
+    if(CS_DATA[csIdx].isMic)csWaitFinale();
   }
 }
 
@@ -983,7 +982,6 @@ function csBeam(now){
 }
 
 function csWaitFinale(){
-  if(csFinaleTrigger)return;
   const timer=setTimeout(startReset,10000);
   csFinaleTrigger={timer};
 }
