@@ -158,6 +158,15 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
   font-family:'Courier New',monospace;font-size:13px;color:#ff4444;
   text-align:center;line-height:1.9;letter-spacing:0.05em;word-break:break-word;}
 #err-overlay.on{display:flex;}
+@keyframes veinPulse{
+  0%{opacity:0.72}
+  6%{opacity:1}
+  14%{opacity:0.78}
+  22%{opacity:0.93}
+  32%{opacity:0.74}
+  100%{opacity:0.72}
+}
+#vein-canvas{animation:veinPulse 1.15s ease-out infinite;}
 </style>
 </head>
 <body>
