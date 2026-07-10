@@ -819,7 +819,7 @@ function csLaunchCard(){
     document.getElementById('cs-content').style.clipPath='none';
     const pb=document.getElementById('cs-pb-'+csIdx);
     if(pb){pb.classList.remove('active');pb.classList.add('done');pb.style.setProperty('--fill','100%');}
-    if(CS_DATA[csIdx].isMic)csWaitFinale();
+    if(csIdx===CS_DATA.length-1)csWaitFinale();
   }
 }
 
@@ -982,6 +982,7 @@ function csBeam(now){
 }
 
 function csWaitFinale(){
+  if(csFinaleTrigger)return;
   const timer=setTimeout(startReset,10000);
   csFinaleTrigger={timer};
 }
@@ -1025,7 +1026,7 @@ function startReset(){
     p0.style.display='flex';p0.classList.remove('out');
     overlay.style.transition='opacity 0.8s';overlay.style.opacity='0';
     setTimeout(()=>{overlay.style.display='none';overlay.style.transition='';window._resetting=false;},800);
-  },1300);
+  },6200);
 }
 
 /* ── Start ── */
