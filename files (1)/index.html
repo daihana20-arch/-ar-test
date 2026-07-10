@@ -240,6 +240,7 @@ let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 let convergenceStart=null, disperseStart=null;
+let arInitialized=false, arLoopStarted=false;
 
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -632,6 +633,8 @@ void main(){
 let arMarkerEl=null;
 
 function initAR(){
+  if(arInitialized)return;
+  arInitialized=true;
   const scene=document.createElement('a-scene');
   scene.setAttribute('embedded','');
   scene.setAttribute('arjs','sourceType:webcam;debugUIEnabled:false;uiScanning:no;uiError:no;uiLoading:no;patternRatio:0.5;');
@@ -749,7 +752,7 @@ const CS_DATA=[
   {id:'breath',
    big:'Ta drevo pozna tvoje dihanje.'},
   {id:'mic',
-   big:'Približaj se drevesu.\nIzdihni.',isMic:true}
+   big:'Pospravi telefon.\nObjami drevo.',isMic:true}
 ];
 
 let csIdx=0,csOn=false,csRaf=null,csAscIv=null,csT0=null;
@@ -827,10 +830,9 @@ function csNext(){
   csLastNext=now;
   if(csFinaleTrigger){
     clearTimeout(csFinaleTrigger.timer);
-    clearInterval(csFinaleTrigger.mic);
     csFinaleTrigger=null;
   }
-  if(csIdx>=CS_DATA.length-1){startFinale();return;}
+  if(csIdx>=CS_DATA.length-1){startReset();return;}
   if(csRaf){cancelAnimationFrame(csRaf);csRaf=null;}
   if(csAscIv){clearInterval(csAscIv);csAscIv=null;}
   const pb=document.getElementById('cs-pb-'+csIdx);
@@ -980,12 +982,8 @@ function csBeam(now){
 }
 
 function csWaitFinale(){
-  const micIv=setInterval(()=>{
-    if(getMicVolume()>0.6){cleanup();startFinale();}
-  },80);
-  const timer=setTimeout(()=>{cleanup();startFinale();},5000);
-  function cleanup(){clearInterval(micIv);clearTimeout(timer);csFinaleTrigger=null;}
-  csFinaleTrigger={mic:micIv,timer};
+  const timer=setTimeout(startReset,10000);
+  csFinaleTrigger={timer};
 }
 
 /* Touch/tap navigation */
@@ -1004,80 +1002,30 @@ function csWaitFinale(){
   ov.addEventListener('click',e=>{e.stopPropagation();csNext();});
 })();
 
-/* ── Finale ── */
-function fnSample(text,fontSize,W){
-  const H2=fontSize*3;
-  const tc=document.createElement('canvas');
-  tc.width=W;tc.height=H2;
-  const tx=tc.getContext('2d');
-  tx.font=`italic ${fontSize}px Georgia,serif`;
-  tx.fillStyle='#fff';tx.textAlign='center';tx.textBaseline='middle';
-  tx.fillText(text,W/2,H2/2);
-  const id=tx.getImageData(0,0,W,H2);
-  const pts=[];
-  for(let y=0;y<H2;y+=3)
-    for(let x=0;x<W;x+=3)
-      if(id.data[(y*W+x)*4+3]>60)pts.push({x,dy:y-H2/2});
-  return pts;
-}
-
-function startFinale(){
-  const cv=document.getElementById('cs-finale');
-  const FW=window.innerWidth,FH=window.innerHeight;
-  cv.width=FW;cv.height=FH;cv.style.display='block';
-  const ctx=cv.getContext('2d');
-  const fs=Math.min(Math.max(FW*0.06,24),52);
-  const pts1=fnSample('Pospravi telefon.',fs,FW);
-  const pts2=fnSample('Objami drevo.',fs,FW);
-  const cy1=FH*0.42,cy2=FH*0.58;
-  function mk(pts,cy,baseDelay){
-    return pts.map(p=>({
-      tx:p.x,ty:cy+p.dy,
-      x:Math.random()*FW,y:Math.random()*FH,
-      vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,
-      life:1,st:0,delay:baseDelay+Math.random()*400
-    }));
-  }
-  const fp=[...mk(pts1,cy1,0),...mk(pts2,cy2,3500)];
-  const fnT0=performance.now();
-
-  function fnDraw(now){
-    const el=now-fnT0;
-    ctx.fillStyle='rgba(0,0,0,0.18)';
-    ctx.fillRect(0,0,FW,FH);
-    let alive=false;
-    for(const p of fp){
-      if(el<p.delay){alive=true;continue;}
-      if(!p.st)p.st=now;
-      const t=now-p.st;
-      if(t<1500){
-        p.x+=p.vx;p.y+=p.vy;p.vx*=0.97;p.vy*=0.97;alive=true;
-      }else if(t<4500){
-        const dx=p.tx-p.x,dy=p.ty-p.y;
-        p.vx+=dx*0.06;p.vy+=dy*0.06;
-        p.vx*=0.82;p.vy*=0.82;
-        p.x+=p.vx;p.y+=p.vy;alive=true;
-      }else if(el<10500){
-        p.x=p.tx;p.y=p.ty;alive=true;
-      }else{
-        p.vx+=(Math.random()-0.5)*2;p.vy+=(Math.random()-0.5)*2;
-        p.x+=p.vx;p.y+=p.vy;p.life-=0.006;
-        if(p.life>0)alive=true;
-      }
-      if(p.life<=0)continue;
-      const hue=120+(p.tx/FW)*60;
-      ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);
-      ctx.fillStyle=`hsla(${hue},85%,65%,${p.life*0.9})`;
-      ctx.fill();
-    }
-    if(alive&&el<14000){requestAnimationFrame(fnDraw);}
-    else{
-      cv.style.display='none';
-      ctx.clearRect(0,0,FW,FH);
-      csIdx=0;csOn=false;
-    }
-  }
-  requestAnimationFrame(fnDraw);
+/* ── Reset / Finale ── */
+function startReset(){
+  if(window._resetting)return;
+  window._resetting=true;
+  if(csFinaleTrigger){clearTimeout(csFinaleTrigger.timer);csFinaleTrigger=null;}
+  const overlay=document.getElementById('cs-finale');
+  overlay.style.opacity='0';
+  overlay.style.display='block';
+  overlay.style.transition='opacity 1.2s';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{overlay.style.opacity='1';}));
+  setTimeout(()=>{
+    markerSeen=false;phActive=false;converging=false;
+    convergenceStart=null;disperseStart=null;phAlpha=0;tick=0;
+    pools.forEach(p=>p.particles=[]);window._targetsSet=false;
+    csOn=false;csIdx=0;p3started=false;motionStarted=false;phase=0;
+    document.getElementById('cs-overlay').classList.remove('on');
+    document.getElementById('sci').classList.remove('on');
+    document.getElementById('hud').classList.remove('on');
+    phCtx.clearRect(0,0,phCv.width,phCv.height);
+    const p0=document.getElementById('p0');
+    p0.style.display='flex';p0.classList.remove('out');
+    overlay.style.transition='opacity 0.8s';overlay.style.opacity='0';
+    setTimeout(()=>{overlay.style.display='none';overlay.style.transition='';window._resetting=false;},800);
+  },1300);
 }
 
 /* ── Start ── */
@@ -1102,7 +1050,7 @@ document.getElementById('btn-start').addEventListener('click',()=>{
     document.getElementById('p2').classList.add('on');
     setTimeout(()=>document.getElementById('tree-id').classList.add('on'),900);
     setTimeout(()=>document.getElementById('sci').classList.add('on'),1800);
-    arLoop();
+    if(!arLoopStarted){arLoopStarted=true;arLoop();}
     document.body.addEventListener('touchstart',()=>{
       if(phase>=2)document.getElementById('hud').classList.add('on');
     },{passive:true});
