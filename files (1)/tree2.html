@@ -153,9 +153,16 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 .cs-solar-bar-wrap{width:100%;height:6px;background:rgba(0,255,80,0.12);
   border-radius:3px;overflow:hidden;margin-bottom:16px}
 .cs-solar-bar{height:100%;background:linear-gradient(to right,#00e84a,#ffd060);border-radius:3px}
+#err-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.82);
+  display:none;align-items:center;justify-content:center;padding:28px;
+  font-family:'Courier New',monospace;font-size:13px;color:#ff4444;
+  text-align:center;line-height:1.9;letter-spacing:0.05em;word-break:break-word;}
+#err-overlay.on{display:flex;}
 </style>
 </head>
 <body>
+
+<div id="err-overlay"></div>
 
 <div id="p0">
   <p class="top-label">Mestni gozd Celje</p>
@@ -231,6 +238,16 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 <canvas id="vein-canvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;pointer-events:none;display:none;transform:translateZ(1000px);mix-blend-mode:screen;"></canvas>
 
 <script>
+function showError(msg){
+  const el=document.getElementById('err-overlay');
+  if(!el)return;
+  el.textContent=msg;
+  el.classList.add('on');
+  el.addEventListener('click',()=>el.classList.remove('on'),{once:true});
+}
+window.onerror=(_m,_s,_l,_c,err)=>showError('ERROR: '+(err&&err.message||_m));
+window.onunhandledrejection=e=>showError('UNHANDLED: '+((e.reason&&e.reason.message)||e.reason||'Unknown'));
+
 const LAT=46.227222, LON=15.259167;
 let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phase=0;
@@ -1053,8 +1070,8 @@ const _sn3=(()=>{
   };
 })();
 
-// Red palette as RGB tuples for rgba() alpha ramp
-const VEIN_COLORS_RGB=[[113,0,0],[146,14,14],[190,7,7],[234,10,10]];
+// Cyan palette as RGB tuples for rgba() alpha ramp
+const VEIN_COLORS_RGB=[[10,127,140],[15,163,177],[18,194,212],[53,230,240]];
 const VEIN_BASE=300,VEIN_ZINC=0.0001,VEIN_NUM=1000;
 
 function veinGetNoise(x,y,z){
@@ -1079,7 +1096,7 @@ function startVein(){
       veinCv.width=W;veinCv.height=H;
       veinCtx=veinCv.getContext('2d');
       veinCtx.clearRect(0,0,W,H);
-      veinCtx.lineWidth=0.3;
+      veinCtx.lineWidth=0.5;
       veinCtx.lineCap='round';
       veinCtx.lineJoin='round';
       veinCtx.globalAlpha=1;
@@ -1114,7 +1131,7 @@ function startVein(){
         const angle=Math.PI*6*veinGetNoise(p.x/VEIN_BASE*1.75,p.y/VEIN_BASE*1.75,veinZoff);
         p.x+=Math.cos(angle)*step;
         p.y+=Math.sin(angle)*step;
-        if(p.alpha<1)p.alpha=Math.min(1,p.alpha+0.003);
+        if(p.alpha<1)p.alpha=Math.min(1,p.alpha+0.004);
         veinCtx.beginPath();
         veinCtx.strokeStyle=`rgba(${p.r},${p.g},${p.b},${p.alpha.toFixed(3)})`;
         veinCtx.moveTo(p.pastX,p.pastY);
@@ -1125,7 +1142,7 @@ function startVein(){
       veinZoff+=VEIN_ZINC;
       veinRaf=requestAnimationFrame(loop);
     })();
-  }catch(e){console.error('[startVein]',e);}
+  }catch(e){console.error('[startVein]',e);showError('[startVein] '+e.message);}
 }
 
 function stopVein(){
@@ -1139,7 +1156,7 @@ function stopVein(){
       if(veinCtx)veinCtx.clearRect(0,0,veinCv.width,veinCv.height);
       veinParticles=[];
     },10000);
-  }catch(e){console.error('[stopVein]',e);}
+  }catch(e){console.error('[stopVein]',e);showError('[stopVein] '+e.message);}
 }
 
 /* ── Start ── */
@@ -1155,7 +1172,12 @@ document.getElementById('btn-start').addEventListener('click',()=>{
         const cams=[...document.querySelectorAll('video')].filter(v=>v.readyState>=2&&v.videoWidth>0);
         if(cams.length){clearInterval(iv);resolve();}
       },300);
-      setTimeout(()=>{clearInterval(iv);resolve();},10000);
+      setTimeout(()=>{
+        clearInterval(iv);
+        const camsNow=[...document.querySelectorAll('video')].filter(v=>v.readyState>=2&&v.videoWidth>0);
+        if(!camsNow.length)showError('CAMERA TIMEOUT — reload or restart Safari');
+        resolve();
+      },10000);
     });
     document.getElementById('p-wait').classList.remove('on');
     await fetchWeather();
@@ -1171,6 +1193,12 @@ document.getElementById('btn-start').addEventListener('click',()=>{
     document.body.addEventListener('touchend',()=>{
       document.getElementById('hud').classList.remove('on');
     },{passive:true});
+  });
+});
+
+window.addEventListener('pagehide',()=>{
+  document.querySelectorAll('video').forEach(v=>{
+    if(v.srcObject){v.srcObject.getTracks().forEach(t=>t.stop());v.srcObject=null;}
   });
 });
 </script>
