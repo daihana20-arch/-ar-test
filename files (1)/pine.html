@@ -239,6 +239,13 @@ let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phase=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 
+/* Pine vars declared here so resize() can safely reference pineInited before initPine() runs */
+const PINE_COUNT=20;
+const pineParticles=[];
+let pineRenderer=null,pineScene,pineCamera,pineMesh,pineDummy,pineClock;
+let pineRaf=null,pineActive=false,pineInited=false;
+let pineFrame=0,pineTriggered=false;
+
 /* ph-cv kept for W/H resize side-effects */
 const phCv=document.getElementById('ph-cv');
 const phCtx=phCv.getContext('2d');
@@ -1028,12 +1035,6 @@ void main(){
   vec3 col=base+uColorSparkle*sparkles*10.0;
   gl_FragColor=vec4(col,1.0);
 }`;
-
-const PINE_COUNT=20;
-const pineParticles=[];
-let pineRenderer=null,pineScene,pineCamera,pineMesh,pineDummy,pineClock;
-let pineRaf=null,pineActive=false,pineInited=false;
-let pineFrame=0,pineTriggered=false;
 
 function initPine(){
   const canvas=document.getElementById('pine-canvas');
