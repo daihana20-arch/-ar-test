@@ -165,12 +165,12 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 }
 @keyframes sparkle{
   0%  {opacity:0;   box-shadow:0px 0px 6px 3px rgba(61,255,176,0.2);}
-  50% {opacity:1;   box-shadow:0px 0px 10px 5px #3dffb0;}
+  50% {opacity:1;   box-shadow:0px 0px var(--glow-size,10px) var(--glow-spread,5px) #3dffb0;}
   100%{opacity:0.4; box-shadow:0px 0px 6px 3px rgba(61,255,176,0.3);}
 }
 @keyframes pine-fall{
-  from{transform:translateY(0);}
-  to  {transform:translateY(120vh);}
+  from{transform:translateY(0) translateX(0);}
+  to  {transform:translateY(120vh) translateX(var(--drift,0px));}
 }
 </style>
 </head>
@@ -256,7 +256,7 @@ let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phase=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 
-let pineActive=false,pineTriggered=false,pineTimeout=null;
+let pineActive=false;
 
 /* ph-cv kept for W/H resize side-effects */
 const phCv=document.getElementById('ph-cv');
@@ -951,35 +951,59 @@ function startPine(){
   container.innerHTML='';
   container.style.display='block';
   pineActive=true;
-  pineTriggered=false;
 
-  for(let i=0;i<30;i++){
+  /* ── weather-derived parameters ── */
+  const wind     = weather.wind      || 1.8;  /* m/s  0–20+  */
+  const humidity = weather.humidity  || 65;   /* %    0–100  */
+  const temp     = weather.temp      || 14;   /* °C          */
+  const radiation= weather.radiation || 180;  /* W/m² 0–1200 */
+
+  /* VLAŽNOST → star count (20 dry … 50 saturated) + glow size */
+  const count     = Math.round(20+(humidity/100)*30);
+  const glowSize  = (8 +(humidity/100)*12).toFixed(1)+'px'; /* 8–20 px */
+  const glowSpread= (3 +(humidity/100)*7 ).toFixed(1)+'px'; /* 3–10 px */
+
+  /* VETER → horizontal drift at bottom of fall (0 … 160 px) */
+  const maxDrift  = Math.min(wind/20,1)*160;
+
+  /* TEMP → fall speed: warmer = faster (factor 1.0 cold … 0.5 hot) */
+  const speedFactor = 1-Math.min(Math.max((temp-5)/30,0),0.5);
+
+  /* SEVANJE → sparkle speed: brighter = faster blink (factor 1.0 dark … 0.35 sunny) */
+  const radFactor   = 1-Math.min(radiation/1200,0.65);
+
+  for(let i=0;i<count;i++){
     const star=document.createElement('div');
     star.className='star';
-    const top=getRandom(-16,0)+'vh';
-    const left=getRandom(0,100)+'vw';
-    const sparkleDur=getRandom(3,6)+'s';
-    const sparkleDelay=getRandom(0,15)+'s';
-    const fallDur=getRandom(10,24);
-    const fallDelay=-getRandom(0,fallDur)+'s';
-    star.style.top=top;
-    star.style.left=left;
+
+    /* position */
+    star.style.top =getRandom(-16,0)+'vh';
+    star.style.left=getRandom(0,100)+'vw';
+
+    /* VLAŽNOST: glow via CSS custom properties used in @keyframes sparkle */
+    star.style.setProperty('--glow-size',  glowSize);
+    star.style.setProperty('--glow-spread',glowSpread);
+
+    /* VETER: lateral drift via CSS custom property used in @keyframes pine-fall */
+    const drift=(0.3+Math.random()*0.7)*maxDrift; /* always downwind, 30–100 % of max */
+    star.style.setProperty('--drift',drift.toFixed(0)+'px');
+
+    /* SEVANJE → sparkle duration; TEMP → fall duration */
+    const sparkleDur =(getRandom(3,6)*radFactor  ).toFixed(2)+'s';
+    const sparkleDelay=getRandom(0,15).toFixed(2)+'s';
+    const fallDur    = getRandom(10,24)*speedFactor;
+    const fallDelay  =(-getRandom(0,fallDur)).toFixed(2)+'s';
+
     star.style.animation=
       `sparkle ${sparkleDur} ease-in-out ${sparkleDelay} infinite alternate,`+
-      `pine-fall ${fallDur}s linear ${fallDelay} infinite`;
+      `pine-fall ${fallDur.toFixed(2)}s linear ${fallDelay} infinite`;
+
     container.appendChild(star);
   }
-
-  /* csStart fires after 60 seconds */
-  pineTimeout=setTimeout(()=>{
-    if(pineActive&&!pineTriggered){pineTriggered=true;csStart();}
-  },60000);
 }
 
 function stopPine(){
   pineActive=false;
-  pineTriggered=false;
-  if(pineTimeout){clearTimeout(pineTimeout);pineTimeout=null;}
   const container=document.getElementById('pine-container');
   container.style.display='none';
   container.innerHTML='';
