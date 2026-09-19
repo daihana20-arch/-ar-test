@@ -7,7 +7,6 @@
 <title>Planet Intelligence — Akumulacija tišine</title>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.136.0/build/three.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#fff}
@@ -154,6 +153,19 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 .cs-solar-bar-wrap{width:100%;height:6px;background:rgba(0,255,80,0.12);
   border-radius:3px;overflow:hidden;margin-bottom:16px}
 .cs-solar-bar{height:100%;background:linear-gradient(to right,#00e84a,#ffd060);border-radius:3px}
+/* ── Pine: CSS sparkle snowfall ── */
+#pine-container{position:fixed;top:0;left:0;width:100%;height:100%;
+  z-index:22;pointer-events:none;display:none;overflow:hidden;}
+.pine-dot{position:absolute;border-radius:50%;background:#3dffb0;
+  box-shadow:0 0 10px 5px #3dffb0;}
+@keyframes pine-fall{
+  from{transform:translateY(0);}
+  to  {transform:translateY(115vh);}
+}
+@keyframes pine-blink{
+  0%,100%{opacity:0.4;}
+  50%    {opacity:1;}
+}
 </style>
 </head>
 <body>
@@ -230,8 +242,7 @@ a-scene{position:fixed!important;top:0!important;left:0!important;
 
 <canvas id="cs-finale"></canvas>
 
-<!-- Three.js pine sparkle overlay: sits above AR canvas (z-index 1), below HUD (z-index 30) -->
-<canvas id="pine-canvas" style="position:fixed;top:0;left:0;z-index:22;pointer-events:none;display:none;"></canvas>
+<div id="pine-container"></div>
 
 <script>
 const LAT=46.227222, LON=15.259167;
@@ -239,12 +250,7 @@ let W=window.innerWidth, H=window.innerHeight;
 let markerSeen=false, phase=0;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
 
-/* Pine vars declared here so resize() can safely reference pineInited before initPine() runs */
-const PINE_COUNT=20;
-const pineParticles=[];
-let pineRenderer=null,pineScene,pineCamera,pineMesh,pineDummy,pineClock;
-let pineRaf=null,pineActive=false,pineInited=false;
-let pineFrame=0,pineTriggered=false;
+let pineActive=false,pineTriggered=false,pineTimeout=null;
 
 /* ph-cv kept for W/H resize side-effects */
 const phCv=document.getElementById('ph-cv');
@@ -252,11 +258,6 @@ const phCtx=phCv.getContext('2d');
 function resize(){
   W=phCv.width=window.innerWidth;
   H=phCv.height=window.innerHeight;
-  if(pineInited){
-    pineCamera.aspect=window.innerWidth/window.innerHeight;
-    pineCamera.updateProjectionMatrix();
-    pineRenderer.setSize(window.innerWidth,window.innerHeight);
-  }
 }
 resize(); window.addEventListener('resize',resize);
 
@@ -935,217 +936,50 @@ function startFinale(){
   requestAnimationFrame(fnDraw);
 }
 
-/* ── PINE: Three.js Sparkle Particles ──
-   20 small glowing spheres (InstancedMesh) fall slowly downward.
-   Simplex-noise sparkle shader on each sphere surface.
-   Transparent canvas composited over AR camera feed.
-   csStart() fires after 300 rendered frames. ── */
-
-const PINE_VS=`
-varying vec3 vPosition;
-varying vec3 vNormal;
-uniform float uTime;
-uniform float uTwistSpeed;
-uniform float uTwistStrength;
-mat3 ryMat(float a){
-  float c=cos(a),s=sin(a);
-  return mat3(c,0.0,s, 0.0,1.0,0.0, -s,0.0,c);
-}
-void main(){
-  vNormal=normal;
-  vec3 pos=position;
-  float twist=sin(pos.y*3.0+uTime*uTwistSpeed)*uTwistStrength;
-  pos=ryMat(twist)*pos;
-  vPosition=pos;
-  /* instanceMatrix is injected by Three.js for InstancedMesh */
-  gl_Position=projectionMatrix*viewMatrix*instanceMatrix*vec4(pos,1.0);
-}`;
-
-const PINE_FS=`
-precision highp float;
-varying vec3 vPosition;
-varying vec3 vNormal;
-uniform float uTime;
-uniform float uDensity;
-uniform float uSize;
-uniform float uNoiseSpeed;
-uniform float uOrbitSpeed;
-uniform vec3  uColorCore;
-uniform vec3  uColorSparkle;
-uniform float uCoreIntensity;
-
-vec3 mod289v3(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 mod289v4(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 permute(vec4 x){return mod289v4(((x*34.0)+1.0)*x);}
-vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-float snoise(vec3 v){
-  const vec2 C=vec2(1.0/6.0,1.0/3.0);
-  const vec4 D=vec4(0.0,0.5,1.0,2.0);
-  vec3 i=floor(v+dot(v,C.yyy));
-  vec3 x0=v-i+dot(i,C.xxx);
-  vec3 g=step(x0.yzx,x0.xyz);
-  vec3 l=1.0-g;
-  vec3 i1=min(g.xyz,l.zxy);
-  vec3 i2=max(g.xyz,l.zxy);
-  vec3 x1=x0-i1+C.xxx;
-  vec3 x2=x0-i2+C.yyy;
-  vec3 x3=x0-D.yyy;
-  i=mod289v3(i);
-  vec4 p=permute(permute(permute(
-    i.z+vec4(0.0,i1.z,i2.z,1.0))
-    +i.y+vec4(0.0,i1.y,i2.y,1.0))
-    +i.x+vec4(0.0,i1.x,i2.x,1.0));
-  float n_=0.142857142857;
-  vec3 ns=n_*D.wyz-D.xzx;
-  vec4 j=p-49.0*floor(p*ns.z*ns.z);
-  vec4 x_=floor(j*ns.z);
-  vec4 y_=floor(j-7.0*x_);
-  vec4 x=x_*ns.x+ns.yyyy;
-  vec4 y=y_*ns.x+ns.yyyy;
-  vec4 h=1.0-abs(x)-abs(y);
-  vec4 b0=vec4(x.xy,y.xy);
-  vec4 b1=vec4(x.zw,y.zw);
-  vec4 s0=floor(b0)*2.0+1.0;
-  vec4 s1=floor(b1)*2.0+1.0;
-  vec4 sh=-step(h,vec4(0.0));
-  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;
-  vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
-  vec3 p0=vec3(a0.xy,h.x);
-  vec3 p1=vec3(a0.zw,h.y);
-  vec3 p2=vec3(a1.xy,h.z);
-  vec3 p3=vec3(a1.zw,h.w);
-  vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
-  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);
-  m=m*m;
-  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
-mat3 ryMat(float a){
-  float c=cos(a),s=sin(a);
-  return mat3(c,0.0,s, 0.0,1.0,0.0, -s,0.0,c);
-}
-void main(){
-  vec3 p=vPosition;
-  p=ryMat(uTime*uOrbitSpeed)*p;
-  float noiseVal=snoise(p*uDensity+vec3(uTime*uNoiseSpeed));
-  float sparkles=max(0.0,noiseVal-(1.0-uSize));
-  sparkles=pow(sparkles*5.0,3.0);
-  float fresnel=pow(1.0-dot(normalize(vNormal),vec3(0.0,0.0,1.0)),3.0);
-  vec3 base=uColorCore*uCoreIntensity*(0.1+fresnel*0.5);
-  vec3 col=base+uColorSparkle*sparkles*10.0;
-  gl_FragColor=vec4(col,1.0);
-}`;
-
-function initPine(){
-  const canvas=document.getElementById('pine-canvas');
-  pineRenderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:false,powerPreference:'high-performance'});
-  pineRenderer.setSize(window.innerWidth,window.innerHeight);
-  pineRenderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
-  pineRenderer.setClearColor(0x000000,0);
-
-  pineScene=new THREE.Scene();
-
-  pineCamera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,100);
-  pineCamera.position.set(0,0,5);
-
-  /* Small sphere per particle: radius 0.07 ≈ pollen-sized on phone screen */
-  const geo=new THREE.SphereGeometry(0.07,12,12);
-
-  const mat=new THREE.ShaderMaterial({
-    vertexShader:PINE_VS,
-    fragmentShader:PINE_FS,
-    uniforms:{
-      uTime:         {value:0},
-      uDensity:      {value:6.0},
-      uSize:         {value:0.35},
-      uNoiseSpeed:   {value:0.3},
-      uOrbitSpeed:   {value:0.3},
-      uColorCore:    {value:new THREE.Color('#001a08')},
-      uColorSparkle: {value:new THREE.Color('#3dffb0')},
-      uCoreIntensity:{value:2.5},
-      uTwistSpeed:   {value:0.8},
-      uTwistStrength:{value:0.15}
-    },
-    blending:THREE.AdditiveBlending,
-    depthWrite:false,
-    transparent:true
-  });
-
-  pineMesh=new THREE.InstancedMesh(geo,mat,PINE_COUNT);
-  pineMesh.frustumCulled=false;
-  pineScene.add(pineMesh);
-
-  pineDummy=new THREE.Object3D();
-  for(let i=0;i<PINE_COUNT;i++){
-    const p={
-      x:(Math.random()-0.5)*2.0,
-      y:Math.random()*5.5-2.5,
-      z:(Math.random()-0.5)*1.2,
-      vy:0.25+Math.random()*0.35,
-      scale:0.6+Math.random()*0.9
-    };
-    pineParticles.push(p);
-    pineDummy.position.set(p.x,p.y,p.z);
-    pineDummy.scale.setScalar(p.scale);
-    pineDummy.updateMatrix();
-    pineMesh.setMatrixAt(i,pineDummy.matrix);
-  }
-  pineMesh.instanceMatrix.needsUpdate=true;
-
-  pineClock=new THREE.Clock();
-  pineInited=true;
-}
+/* ── PINE: CSS sparkle snowfall ── */
 
 function startPine(){
-  if(!pineInited)initPine();
-  document.getElementById('pine-canvas').style.display='block';
+  const container=document.getElementById('pine-container');
+  container.innerHTML='';
+  container.style.display='block';
   pineActive=true;
-  pineFrame=0;
   pineTriggered=false;
-  pineClock.start();
 
-  (function loop(){
-    if(!pineActive)return;
-    pineFrame++;
+  const COUNT=25;
+  for(let i=0;i<COUNT;i++){
+    const dot=document.createElement('div');
+    dot.className='pine-dot';
+    const x=Math.random()*96;          /* vw: keep dots within screen width */
+    const size=4+Math.random()*6;      /* 4–10 px */
+    const fallDur=10+Math.random()*14; /* 10–24 s: snow-like slow fall */
+    const blinkDur=1.5+Math.random()*2.5; /* 1.5–4 s blink cycle */
+    /* Negative delay starts each dot at a random point in its cycle so they
+       don't all appear/fall simultaneously on marker detection */
+    const fallDelay=-(Math.random()*fallDur);
+    const blinkDelay=-(Math.random()*blinkDur);
+    dot.style.cssText=
+      `left:${x}vw;`+
+      `top:-${8+Math.random()*8}vh;`+
+      `width:${size}px;height:${size}px;`+
+      `animation:`+
+        `pine-fall ${fallDur}s linear ${fallDelay}s infinite,`+
+        `pine-blink ${blinkDur}s ease-in-out ${blinkDelay}s infinite;`;
+    container.appendChild(dot);
+  }
 
-    const delta=Math.min(pineClock.getDelta(),0.05); /* cap delta to avoid jump on tab resume */
-    const t=pineClock.getElapsedTime();
-
-    pineMesh.material.uniforms.uTime.value=t;
-
-    /* fall + wrap */
-    for(let i=0;i<PINE_COUNT;i++){
-      const p=pineParticles[i];
-      p.y-=p.vy*delta;
-      if(p.y<-3.0){
-        p.y=3.5;
-        p.x=(Math.random()-0.5)*2.0;
-      }
-      pineDummy.position.set(p.x,p.y,p.z);
-      pineDummy.scale.setScalar(p.scale);
-      pineDummy.updateMatrix();
-      pineMesh.setMatrixAt(i,pineDummy.matrix);
-    }
-    pineMesh.instanceMatrix.needsUpdate=true;
-
-    pineRenderer.render(pineScene,pineCamera);
-
-    /* trigger card system after ~300 frames (~5 s at 60 fps) */
-    if(pineFrame>300&&!pineTriggered){
-      pineTriggered=true;
-      csStart();
-    }
-
-    pineRaf=requestAnimationFrame(loop);
-  })();
+  /* csStart fires after 60 seconds (1 minute of sparkle effect) */
+  pineTimeout=setTimeout(()=>{
+    if(pineActive&&!pineTriggered){pineTriggered=true;csStart();}
+  },60000);
 }
 
 function stopPine(){
   pineActive=false;
-  if(pineRaf){cancelAnimationFrame(pineRaf);pineRaf=null;}
-  document.getElementById('pine-canvas').style.display='none';
   pineTriggered=false;
-  pineFrame=0;
+  if(pineTimeout){clearTimeout(pineTimeout);pineTimeout=null;}
+  const container=document.getElementById('pine-container');
+  container.style.display='none';
+  container.innerHTML='';
 }
 
 /* ── Start ── */
