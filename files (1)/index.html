@@ -2,1085 +2,927 @@
 <html lang="sl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover">
-<link href="https://fonts.googleapis.com/css2?family=Vidaloka&display=swap" rel="stylesheet">
-<title>Planet Intelligence — Akumulacija tišine</title>
-<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-<script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LMPI — Akumulacija tišine</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;color:#fff}
-.arjs-loader,#arjs-instructions,.arjs-instructions,
-.a-enter-vr,.a-orientation-modal,
-a-scene>div{display:none!important;pointer-events:none!important}
-video:not(#ar-vessel){
-  position:fixed!important;top:50%!important;left:50%!important;
+
+/* ── AR.JS: hide hiro marker download popup ── */
+.arjs-loader,
+#arjs-instructions,
+.arjs-instructions,
+a-scene > div[style*="position: absolute"],
+body > div[style*="z-index: 999"],
+body > div[style*="z-index:999"]{
+  display:none!important;
+  pointer-events:none!important;
+}
+
+/* ── AR.JS CAMERA CANVAS ── */
+.a-canvas{
+  position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;
+  z-index:1!important;pointer-events:none!important;
+  opacity:1!important;
+  filter:none!important;
+  background:transparent!important;
+}
+a-scene{
+  position:fixed!important;top:0!important;left:0!important;
+  width:100vw!important;height:100vh!important;
+  z-index:1!important;pointer-events:none!important;
+  background:transparent!important;
+}
+/* AR.js injects video directly into body */
+body>video:not(#ar-vessel){
+  position:fixed!important;
+  top:50%!important;left:50%!important;
   min-width:100vw!important;min-height:100vh!important;
   width:auto!important;height:auto!important;
-  transform:translate(-50%,-50%)!important;object-fit:cover!important;
-  opacity:1!important;filter:none!important;z-index:0!important;pointer-events:none!important}
-canvas.a-canvas{
-  position:fixed!important;top:0!important;left:0!important;
-  width:100vw!important;height:100vh!important;z-index:1!important}
-.a-canvas{position:fixed!important;top:0!important;left:0!important;
-  width:100vw!important;height:100vh!important;z-index:1!important;pointer-events:none!important}
-a-scene{position:fixed!important;top:0!important;left:0!important;
-  width:100vw!important;height:100vh!important;z-index:1!important;
-  pointer-events:none!important;background:transparent!important}
-#p0{position:fixed;inset:0;z-index:50;background:#0c0c0c;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
-  transition:opacity 0.8s}
-#p0.out{opacity:0;pointer-events:none}
-@keyframes wv1{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(360deg)}}
-@keyframes wv2{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(-360deg)}}
-.top-label{font-size:15px;letter-spacing:0.4em;color:#aaa;text-transform:uppercase}
-.lt{position:relative;display:inline-block;padding:44px 90px;overflow:hidden;border-radius:70px}
-.lt span{position:relative;z-index:2;font-family:Georgia,serif;font-style:italic;font-size:clamp(42px,10vw,82px);color:#fff;line-height:1.2;text-align:center;display:block}
-.lb{position:absolute;top:-100px;left:0;width:100%;height:300%;background:hsl(200,100%,38%);box-shadow:inset 0 0 60px rgba(0,0,0,0.4),0 0 80px rgba(0,180,255,0.5),0 0 160px rgba(0,120,255,0.3)}
-.lb::before{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:48%;background:rgba(0,4,18,1);animation:wv1 14s linear infinite}
-.lb::after{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:42%;background:rgba(0,10,40,0.5);animation:wv2 20s linear infinite}
-#btn-start{background:none;border:1px solid #777;color:#ccc;font-family:'Courier New',monospace;font-size:15px;letter-spacing:0.4em;text-transform:uppercase;padding:18px 52px;cursor:pointer;transition:all 0.4s;margin-top:8px}
-#btn-start:hover{border-color:#fff;color:#fff}
-.copy{font-size:12px;color:#444;position:absolute;bottom:28px;left:50%;transform:translateX(-50%);white-space:nowrap}
-#p-wait{position:fixed;inset:0;z-index:40;background:#000;
-  display:none;align-items:center;justify-content:center;
-  font-size:10px;letter-spacing:0.3em;color:rgba(255,255,255,0.3)}
-#p-wait.on{display:flex}
-#p2{position:fixed;inset:0;z-index:10;opacity:0;pointer-events:none;transition:opacity 1.5s}
-#p2.on{opacity:1}
-#ph-cv{position:fixed;inset:0;z-index:20;pointer-events:none}
-#hud{position:fixed;top:20px;left:18px;z-index:30;
-  font-size:17px;letter-spacing:0.1em;line-height:2.4;pointer-events:none;
-  background:rgba(0,0,0,0.55);padding:10px 14px;
-  opacity:0;transition:opacity 0.3s}
-#hud.on{opacity:1}
-.hv-s{color:#ffd060}.hv-h{color:#60c8ff}.hv-t{color:#ff7040}.hv-w{color:#fff}
-.hl{color:rgba(255,255,255,0.55);margin-right:8px}
-#tree-id{position:fixed;top:20px;right:18px;z-index:30;text-align:right;
-  font-size:9px;letter-spacing:0.18em;color:rgba(255,255,255,0.25);
-  opacity:0;transition:opacity 2s;pointer-events:none}
-#tree-id.on{opacity:1}
-#sci{position:fixed;bottom:0;left:0;right:0;z-index:30;
-  padding:24px 28px 32px;pointer-events:none;
-  background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,transparent 100%);
-  opacity:0;transition:opacity 2.5s}
-#sci.on{opacity:1}
-.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
-.bar-row:last-child{margin-bottom:0}
-.bar-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.bar-label{font-size:13px;color:rgba(255,255,255,0.85);width:52px;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
-.bar-track{flex:1;height:5px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden}
-.bar-fill{height:100%;border-radius:2px;width:0%;transition:width 1.2s ease}
-.bar-value{font-size:15px;font-weight:500;width:72px;text-align:right;flex-shrink:0;white-space:nowrap}
-#p3{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,0);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  pointer-events:none;opacity:0;transition:opacity 1.2s}
-/* ── Breathing Screen ── */
-#p-breath{position:fixed;inset:0;z-index:48;background:#000;
-  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-  opacity:0;transition:opacity 1s}
-#p-breath.vis{opacity:1}
-.bt-title{font-family:Georgia,serif;font-style:italic;font-size:24px;
-  color:#fff;text-align:center;padding:0 28px;line-height:1.5;max-width:560px}
-.bt-label{font-family:'Vidaloka',serif;font-size:21px;letter-spacing:0.25em;
-  color:rgba(255,255,255,0.2);transition:color 0.4s}
-.bt-ring-wrap{position:relative;width:260px;height:260px}
-#glCanvas,#arcCanvas{position:absolute;top:0;left:0;width:260px;height:260px}
-#bt-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:Georgia,serif;font-size:80px;color:#fff;
-  text-shadow:0 0 30px rgba(0,255,80,0.6);line-height:1;pointer-events:none}
-.bt-dots{display:flex;gap:10px;margin-top:8px}
-.bt-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18)}
-.bt-dot-on{background:#00e86a;box-shadow:0 0 8px #00e86a}
-.bt-mic{background:none;border:1px solid rgba(0,255,80,0.4);color:rgba(0,255,80,0.7);
-  font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.2em;padding:10px 24px;
-  cursor:pointer;transition:all 0.4s;margin-top:4px}
-.bt-mic:hover,.bt-mic.active{border-color:#00ff55;color:#00ff55;box-shadow:0 0 10px rgba(0,255,80,0.3)}
-#cs-finale{position:fixed;inset:0;z-index:47;background:#000;display:none}
-#p3.on{opacity:1;pointer-events:auto;background:rgba(0,0,0,0.85)}
-#countdown{font-size:clamp(80px,22vw,160px);font-family:Georgia,serif;color:#fff;opacity:0.9;line-height:1}
-#end-text{display:none;text-align:center}
-#end-line1{font-size:clamp(22px,5.5vw,36px);font-family:Georgia,serif;font-style:italic;
-  color:#fff;margin-bottom:16px;line-height:1.4}
-#end-line2{font-size:11px;letter-spacing:0.25em;color:rgba(255,255,255,0.35)}
-/* ── Card System ── */
-#cs-overlay{position:fixed;inset:0;z-index:35;
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:flex-start;padding-top:max(10px,env(safe-area-inset-top));
-  pointer-events:none;opacity:0;transition:opacity 0.5s}
-#cs-overlay.on{opacity:1;pointer-events:auto}
-#cs-progress{display:flex;gap:3px;width:90vw;max-width:340px;
-  height:3px;margin:8px 0 6px;flex-shrink:0}
-.cs-pb{flex:1;height:3px;background:rgba(255,255,255,0.18);
-  border-radius:2px;overflow:hidden;position:relative}
-.cs-pb::after{content:'';position:absolute;top:0;left:0;height:100%;
-  background:rgba(0,255,80,0.85);width:var(--fill,0%);transition:width 0.08s linear}
-.cs-pb.done::after{width:100%!important;background:rgba(0,255,80,0.55)}
-#cs-card{position:relative;width:90vw;max-width:340px;
-  height:82vh;background:rgba(0,8,0,0.85);overflow:hidden;flex-shrink:0}
-#cs-next-hint{position:absolute;right:12px;top:50%;transform:translateY(-50%);
-  z-index:3;color:rgba(255,255,255,0.45);font-size:22px;pointer-events:none;
-  display:none;animation:csHintPulse 2s ease-in-out infinite}
-@keyframes csHintPulse{0%,100%{opacity:0.25}50%{opacity:0.8}}
-#cs-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none}
-#cs-content{position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;
-  display:flex;flex-direction:column;justify-content:center;
-  padding:24px 20px;overflow:hidden}
-#cs-peek{width:90vw;max-width:340px;height:7vh;
-  background:rgba(0,6,0,0.72);overflow:hidden;flex-shrink:0;
-  display:flex;align-items:center;padding:0 18px;
-  border-top:1px solid rgba(0,255,80,0.08)}
-.cs-peek-lbl{font-family:'Courier New',monospace;font-size:9px;letter-spacing:0.15em;
-  color:rgba(0,255,80,0.3);margin-right:8px;text-transform:uppercase;flex-shrink:0}
-.cs-peek-ttl{font-family:Georgia,serif;font-style:italic;font-size:12px;
-  color:rgba(255,255,255,0.25);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cs-img{display:block;width:100%;max-height:150px;object-fit:contain;
-  mix-blend-mode:multiply;margin-bottom:14px}
-.cs-img-bg{position:absolute!important;top:0;left:0;width:100%;height:100%;
-  object-fit:cover;mix-blend-mode:multiply;opacity:0.4;z-index:0;pointer-events:none}
-.cs-title{font-family:Georgia,serif;font-style:italic;font-size:30px;
-  color:#fff;line-height:1.2;margin-bottom:6px}
-.cs-sub{font-family:Georgia,serif;font-style:italic;font-size:15px;
-  color:rgba(255,255,255,0.45);margin-bottom:18px}
-.cs-div{width:40px;height:1px;background:rgba(0,255,80,0.3);margin-bottom:16px}
-.cs-data{font-family:'Courier New',monospace;font-size:13px;
-  color:rgba(0,255,80,0.75);line-height:1.9;letter-spacing:0.04em}
-.cs-text{font-family:Georgia,serif;font-size:14px;
-  color:rgba(255,255,255,0.62);line-height:1.75;margin-top:14px}
-.cs-big{font-family:Georgia,serif;font-style:italic;
-  font-size:clamp(20px,5.5vw,28px);color:rgba(255,255,255,0.88);
-  line-height:1.6;text-align:center}
-.cs-solar-val{font-family:'Courier New',monospace;font-size:28px;
-  color:#ffd060;letter-spacing:0.06em}
-.cs-solar-unit{font-family:'Courier New',monospace;font-size:11px;
-  color:rgba(255,208,96,0.5);letter-spacing:0.14em;margin-bottom:10px}
-.cs-solar-bar-wrap{width:100%;height:6px;background:rgba(0,255,80,0.12);
-  border-radius:3px;overflow:hidden;margin-bottom:16px}
-.cs-solar-bar{height:100%;background:linear-gradient(to right,#00e84a,#ffd060);border-radius:3px}
-#cs-countdown{position:absolute;bottom:24px;left:0;right:0;text-align:center;
-  font-family:'Courier New',monospace;font-size:clamp(28px,8vw,44px);
-  color:rgba(255,255,255,0.3);letter-spacing:0.05em;z-index:3;
-  pointer-events:none;display:none}
+  transform:translate(-50%,-50%)!important;
+  object-fit:cover!important;
+  z-index:1!important;pointer-events:none!important;
+  opacity:1!important;
+  filter:none!important;
+}
+
+/* ── START ── */
+#start-overlay{
+  position:fixed;inset:0;z-index:200;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  transition:opacity 0.8s ease;
+}
+#start-overlay.out{opacity:0;pointer-events:none}
+.s-label{font-size:10px;letter-spacing:0.4em;color:#333;text-transform:uppercase}
+.s-title{font-size:clamp(28px,8vw,48px);font-family:Georgia,serif;font-style:italic;text-align:center;line-height:1.15}
+.s-sub{font-size:10px;letter-spacing:0.25em;color:#333;margin-bottom:20px}
+#start-btn{
+  background:none;border:1px solid #2a2a2a;color:#555;
+  font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.35em;
+  text-transform:uppercase;padding:16px 40px;cursor:pointer;transition:all 0.4s;
+}
+#start-btn:hover{border-color:#666;color:#fff}
+
+/* ── PHASE 1: BREATH ── */
+#phase-breath{
+  position:fixed;inset:0;z-index:100;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;
+  transition:opacity 1.5s ease;
+}
+#phase-breath.out{opacity:0;pointer-events:none;display:none!important}
+#breath-canvas{display:block;background:transparent;visibility:hidden}
+#breath-instr{font-size:12px;letter-spacing:0.28em;color:rgba(255,255,255,0.4);text-align:center;min-height:18px;transition:opacity 0.5s}
+#breath-dots{display:flex;gap:12px}
+.bdot{width:7px;height:7px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);transition:all 0.6s}
+.bdot.done{background:#4aff6a;border-color:#4aff6a;box-shadow:0 0 8px rgba(74,255,106,0.6)}
+.bdot.active{background:rgba(74,255,106,0.35);border-color:rgba(74,255,106,0.5)}
+
+/* ── PHASE 2: AR ── */
+#phase-ar{
+  position:fixed;inset:0;z-index:15;opacity:0;pointer-events:none;
+  transition:opacity 1.5s ease;
+}
+#phase-ar.visible{opacity:1;pointer-events:none}
+#video{display:none!important}
+#cv-main{position:fixed;inset:0;z-index:16;background:transparent}
+#cv-glitch{position:fixed;inset:0;z-index:18;pointer-events:none;background:transparent}
+#cv-vasc{position:fixed;inset:0;z-index:19;pointer-events:none;background:transparent}
+#phase-breath{background:transparent!important}
+
+/* HUD */
+.hud{position:fixed;z-index:20;font-size:10px;letter-spacing:0.12em;line-height:2;text-shadow:0 0 10px rgba(0,0,0,1);pointer-events:none;opacity:0;transition:opacity 1.8s}
+#hud-tl{top:24px;left:20px}
+#hud-tr{top:24px;right:20px;text-align:right;color:rgba(255,255,255,0.3)}
+#hud-bl{bottom:44px;left:20px;color:rgba(255,255,255,0.3);font-size:9px}
+.hl{color:rgba(255,255,255,0.3);margin-right:6px}
+.dv-sun{color:#ffd060}.dv-water{color:#60c8ff}.dv-heat{color:#ff7040}.dv-wind{color:rgba(255,255,255,0.85)}
+#hud-tl.show,#hud-tr.show,#hud-bl.show{opacity:1}
+
+/* Science data panel */
+#sci-panel{
+  position:fixed;bottom:0;left:0;right:0;z-index:22;
+  padding:28px 32px 36px;
+  background:linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%);
+  opacity:0;transition:opacity 2s;pointer-events:none;
+}
+#sci-panel.show{opacity:1}
+#sci-main{font-size:clamp(18px,4.5vw,28px);font-family:Georgia,serif;font-style:italic;color:rgba(255,255,255,0.92);line-height:1.45;margin-bottom:10px;text-shadow:0 0 20px rgba(0,0,0,1)}
+#sci-sub{font-size:13px;letter-spacing:0.15em;color:#ccff00;font-family:'Courier New',monospace;text-shadow:0 0 10px rgba(0,0,0,1)}
+
+
+/* ── PHASE 4: TEXT + COUNTDOWN ── */
+#phase-text{
+  position:fixed;inset:0;z-index:50;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+  opacity:0;pointer-events:none;transition:opacity 2s ease;
+  background:rgba(0,0,0,0.4);
+}
+#phase-text.visible{opacity:1}
+.poem-line{
+  font-family:Georgia,serif;font-style:italic;
+  font-size:clamp(20px,5vw,36px);
+  color:rgba(255,255,255,0.92);text-align:center;line-height:1.9;
+  text-shadow:0 0 30px rgba(0,0,0,1),0 0 60px rgba(0,0,0,0.8);
+  opacity:0;transform:translateY(8px);
+  transition:opacity 1.1s ease,transform 1.1s ease;
+}
+.poem-line.show{opacity:1;transform:translateY(0)}
+
+#countdown-wrap{
+  position:fixed;inset:0;z-index:51;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+  opacity:0;pointer-events:none;transition:opacity 1.5s;
+}
+#countdown-wrap.visible{opacity:1}
+#cdown-prompt{font-size:13px;letter-spacing:0.3em;color:rgba(255,255,255,0.5);text-align:center;line-height:1.7}
+#cdown-prompt span{display:block}
+#cdown-num{
+  font-size:clamp(80px,20vw,140px);font-family:Georgia,serif;font-style:italic;
+  color:rgba(255,255,255,0.85);
+  text-shadow:0 0 40px rgba(255,255,255,0.15);
+  transition:opacity 0.4s;
+}
 </style>
+<script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
 </head>
 <body>
 
-<div id="p0">
-  <p class="top-label">Mestni gozd Celje</p>
-  <div class="lt">
-    <div class="lb"></div>
-    <span>Akumulacija<br>tišine</span>
-  </div>
-  <button id="btn-start">▶ &nbsp; ZAČNI</button>
-  <p class="copy">© Keiko Miyazaki &amp; Darija Cvikl 2026</p>
+<!-- START -->
+<div id="start-overlay">
+  <p class="s-label">Mestni gozd Celje</p>
+  <p class="s-title">Akumulacija<br>tišine</p>
+  <p class="s-sub">Living Museum of Plant Intelligence</p>
+  <button id="start-btn">▶ &nbsp; ZAČNI</button>
 </div>
 
-<div id="p-breath">
-  <p class="bt-title">Tvoje dihanje se poveže z drevesom.</p>
-  <div id="bt-vdihi" class="bt-label">VDIHI</div>
-  <div class="bt-ring-wrap">
-    <canvas id="glCanvas" width="260" height="260"></canvas>
-    <canvas id="arcCanvas" width="260" height="260"></canvas>
-    <div id="bt-num"></div>
-  </div>
-  <div id="bt-izdihi" class="bt-label">IZDIHI</div>
-  <div class="bt-dots">
-    <span class="bt-dot"></span>
-    <span class="bt-dot"></span>
-    <span class="bt-dot"></span>
+<!-- PHASE 1 -->
+<div id="phase-breath">
+  <p class="b-label">Mestni gozd Celje</p>
+  <canvas id="breath-canvas" width="280" height="280"></canvas>
+  <p id="breath-instr">vdihni počasi</p>
+  <div id="breath-dots">
+    <div class="bdot" id="d0"></div>
+    <div class="bdot" id="d1"></div>
+    <div class="bdot" id="d2"></div>
+    <div class="bdot" id="d3"></div>
+    <div class="bdot" id="d4"></div>
   </div>
 </div>
 
-<div id="p-wait">INITIALIZING CAMERA…</div>
+<!-- PHASE 2+3 -->
+<div id="phase-ar">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="cv-main"></canvas>
+  <canvas id="cv-vasc"></canvas>
 
-<div id="p2">
-  <canvas id="ph-cv"></canvas>
-  <div id="hud">
-    <div><span class="hl">SOLAR</span><span id="v-s" class="hv-s">—</span></div>
-    <div><span class="hl">HUMID</span><span id="v-h" class="hv-h">—</span></div>
-    <div><span class="hl">TEMP</span><span id="v-t" class="hv-t">—</span></div>
-    <div><span class="hl">WIND</span><span id="v-w" class="hv-w">—</span></div>
+  <div id="hud-tl" class="hud">
+    <div><span class="hl">SOLAR</span><span id="v-rad" class="dv-sun">—</span></div>
+    <div><span class="hl">HUMID</span><span id="v-hum" class="dv-water">—</span></div>
+    <div><span class="hl">TEMP</span><span id="v-tmp" class="dv-heat">—</span></div>
+    <div><span class="hl">WIND</span><span id="v-wnd" class="dv-wind">—</span></div>
   </div>
-  <div id="tree-id">TREE_01<br>Picea abies</div>
-  <div id="sci">
-    <div id="data-panel" style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.92);padding:10px 14px 12px;">
-      <div class="bar-row"><div class="bar-dot" style="background:#FFF600"></div><div class="bar-label">sevanje</div><div class="bar-track"><div class="bar-fill" id="fill-solar" style="background:#FFF600"></div></div><div class="bar-value" id="val-solar" style="color:#FFF600">— W/m²</div></div>
-      <div class="bar-row"><div class="bar-dot" style="background:#31E1F7"></div><div class="bar-label">vlažnost</div><div class="bar-track"><div class="bar-fill" id="fill-humid" style="background:#31E1F7"></div></div><div class="bar-value" id="val-humid" style="color:#31E1F7">— %</div></div>
-      <div class="bar-row"><div class="bar-dot" style="background:#D800A6"></div><div class="bar-label">temp</div><div class="bar-track"><div class="bar-fill" id="fill-temp" style="background:#D800A6"></div></div><div class="bar-value" id="val-temp" style="color:#D800A6">— °C</div></div>
-      <div class="bar-row"><div class="bar-dot" style="background:#fff"></div><div class="bar-label">veter</div><div class="bar-track"><div class="bar-fill" id="fill-wind" style="background:#fff"></div></div><div class="bar-value" id="val-wind" style="color:#fff">— m/s</div></div>
-    </div>
+  <div id="hud-tr" class="hud">
+    <div>TREE_01</div>
+    <div style="font-style:italic;font-family:Georgia,serif;font-size:11px;color:rgba(255,255,255,0.18)">Picea abies</div>
+    <div id="v-time" style="margin-top:6px;font-size:9px;color:rgba(255,255,255,0.15)"></div>
   </div>
+  <div id="hud-bl" class="hud">46°13′38″N · 15°15′33″E<br>AKUMULACIJA TIŠINE — 2026</div>
+
+  <div id="sci-panel">
+    <div id="sci-main"></div>
+    <div id="sci-sub"></div>
+  </div>
+
+
 </div>
 
-<div id="p3">
-  <div id="countdown">10</div>
-  <div id="end-text">
-    <div id="end-line1">Pospravi telefon,<br>objami drevo.</div>
-    <div id="end-line2">Put down your phone. Hug the tree.</div>
-  </div>
+<!-- PHASE 4 -->
+<div id="phase-text">
+  <p class="poem-line" id="pl0">tišina je tukaj</p>
+  <p class="poem-line" id="pl1">pusti telefon</p>
+  <p class="poem-line" id="pl2">se dotakni</p>
+  <p class="poem-line" id="pl3">drevo te čaka</p>
 </div>
 
-<div id="cs-overlay">
-  <div id="cs-progress">
-    <div class="cs-pb" id="cs-pb-0"></div>
-    <div class="cs-pb" id="cs-pb-1"></div>
-    <div class="cs-pb" id="cs-pb-2"></div>
-    <div class="cs-pb" id="cs-pb-3"></div>
-    <div class="cs-pb" id="cs-pb-4"></div>
+<div id="countdown-wrap">
+  <div id="cdown-prompt">
+    <span>imaš 10 sekund</span>
+    <span>nato položi</span>
   </div>
-  <div id="cs-card">
-    <canvas id="cs-canvas"></canvas>
-    <div id="cs-content"></div>
-    <div id="cs-next-hint">▶</div>
-    <div id="cs-countdown"></div>
-  </div>
-  <div id="cs-peek"></div>
+  <div id="cdown-num">10</div>
 </div>
-
-<canvas id="cs-finale"></canvas>
 
 <script>
-const LAT=46.227222, LON=15.259167;
-let W=window.innerWidth, H=window.innerHeight;
-let markerSeen=false, phAlpha=0, phase=0, tick=0, phActive=false, converging=false;
-let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,vpd:0.8};
-let convergenceStart=null, disperseStart=null;
-let arInitialized=false, arLoopStarted=false;
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const LAT=46.227222,LON=15.259167;
+const TOTAL_BREATHS=5;
+const BREATH_SEC=5;
 
-const phCv=document.getElementById('ph-cv');
-const phCtx=phCv.getContext('2d');
-function resize(){W=phCv.width=window.innerWidth;H=phCv.height=window.innerHeight;}
-resize(); window.addEventListener('resize',resize);
 
-const FADE_IN=0.008, FADE_OUT=0.015;
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let W=window.innerWidth,H=window.innerHeight;
+let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,evapotranspiration:2.5,vpd:0.8};
+let phase=0;
 
-/* ── Particle Engine ── */
-const PI=Math.PI, TAU=PI*2;
-const attractors=[
-  {x:0.3,y:0.4,freq:0.007,phase:0},
-  {x:0.7,y:0.6,freq:0.011,phase:2.1},
-  {x:0.5,y:0.2,freq:0.005,phase:4.3},
-  {x:0.2,y:0.7,freq:0.009,phase:1.1},
-  {x:0.8,y:0.3,freq:0.013,phase:3.7},
-];
+// breath
+let audioCtx,analyser,micBuf;
+let breathCount=0,breathPhase='in',breathTick=BREATH_SEC;
+let breathActive=false;
+let orbR=75,orbTarget=75,orbSmooth=0;
+let breathNoise=Array.from({length:64},()=>Math.random()*Math.PI*2);
+let breathAngle=0;
 
-class Particle {
-  constructor(ax,ay,hue){
-    this.x=ax+(Math.random()-0.5)*200;
-    this.y=ay+(Math.random()-0.5)*200;
-    this.vx=(Math.random()-0.5)*1.4;
-    this.vy=(Math.random()-0.5)*1.4;
-    this.hue=hue+Math.random()*40-20;
-    this.life=0.75+Math.random()*0.25;
-    this.decay=0.0012+Math.random()*0.0008;
-    this.wobble=Math.random()*TAU;
-    this.wobbleSpeed=(Math.random()-0.5)*0.06;
-    this.tx=null; this.ty=null;
-  }
-  step(tick){
-    if(this.tx!==null){
-      const dx=this.tx-this.x;
-      const dy=this.ty-this.y;
-      const dist=Math.sqrt(dx*dx+dy*dy);
-      if(dist>1){
-        this.wobble+=this.wobbleSpeed;
-        this.x+=dx*0.012+Math.sin(this.wobble)*0.8;
-        this.y+=dy*0.012+Math.cos(this.wobble)*0.8;
-      }
-      return;
-    } else {
-      const spd=8*0.015;
-      this.wobble+=this.wobbleSpeed;
-      const nx=Math.sin(this.x*0.008+tick*0.003)*Math.cos(this.y*0.006);
-      const ny=Math.cos(this.x*0.006-tick*0.002)*Math.sin(this.y*0.008);
-      this.vx+=nx*spd+Math.sin(this.wobble)*0.03;
-      this.vy+=ny*spd+Math.cos(this.wobble)*0.03;
-      this.vx*=0.97; this.vy*=0.97;
-    }
-    this.x+=this.vx; this.y+=this.vy;
-    this.life-=this.decay;
-  }
-  draw(ctx,tick){
-    const a=Math.max(0,this.life);
-    ctx.fillStyle=`hsla(${this.hue+tick*0.2},72%,68%,${a*0.72})`;
-    ctx.beginPath();
-    ctx.arc(this.x,this.y,Math.max(0.001,a*6),0,TAU);
-    ctx.fill();
-  }
+// ar
+let sunP=[],waterP=[],heatP=[],windP=[],floats=[];
+// mindar
+let markerVisible=false;
+let markerScreen={x:0,y:0};
+let markerLockParticles=[];
+let arMarkerEl=null; // global ref for polling
+
+
+// ═══════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════
+const bcv=document.getElementById('breath-canvas');
+const bctx=bcv.getContext('2d');
+const mcv=document.getElementById('cv-main');
+const mctx=mcv.getContext('2d');
+const vcv=document.getElementById('cv-vasc');
+const vctx=vcv.getContext('2d');
+
+function resizeAll(){
+  W=mcv.width=vcv.width=window.innerWidth;
+  H=mcv.height=vcv.height=window.innerHeight;
 }
+window.addEventListener('resize',resizeAll);
+resizeAll();
 
-const pools=attractors.map((a,i)=>({attractor:a,hue:i*72,particles:[]}));
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+document.getElementById('start-btn').addEventListener('click',async()=>{
+  const ov=document.getElementById('start-overlay');
+  ov.classList.add('out');
+  setTimeout(()=>ov.style.display='none',900);
+  // テスト用：深呼吸スキップ → 直接AR
+  await goToAR();
+  // 本番に戻す場合は上の行を下に変更：
+  // await startBreath();
+});
 
-function stepParticles(){
-  phCtx.clearRect(0,0,W,H);
-  if(phAlpha<=0) return;
-  phCtx.save();
-  phCtx.globalAlpha=phAlpha;
-  tick++;
+// ═══════════════════════════════════════════════
+// PHASE 1 — BREATH
+// ═══════════════════════════════════════════════
+async function startBreath(){
+  phase=1;
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')await audioCtx.resume();
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=1024;
+    analyser.smoothingTimeConstant=0.8;
+    const src=audioCtx.createMediaStreamSource(stream);
+    src.connect(analyser);
+    micBuf=new Uint8Array(analyser.frequencyBinCount);
+  }catch(e){analyser=null;}
 
-  const elapsed=disperseStart?performance.now()-disperseStart:0;
-  const inConvPhase=converging&&elapsed>5000;
+  breathActive=true;
+  breathPhase='in';
+  breathTick=BREATH_SEC;
+  updateDots();
+  requestAnimationFrame(breathLoop);
 
-  if(inConvPhase&&!window._targetsSet){
-    window._targetsSet=true;
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CY1=window.innerHeight*0.09;
-    for(const pool of pools)
-      for(const p of pool.particles){
-        p.tx=CX1+Math.random()*cardW;
-        p.ty=CY1+Math.random()*cardH;
-      }
-  }
-  if(!inConvPhase) window._targetsSet=false;
-
-  for(const pool of pools){
-    const a=pool.attractor;
-    const ax=(a.x+Math.sin(tick*a.freq+a.phase)*0.32)*W;
-    const ay=(a.y+Math.cos(tick*a.freq*0.7+a.phase)*0.28)*H;
-
-    if(phAlpha>0.1&&!csOn&&!converging&&pool.particles.length<500){
-      for(let i=0;i<20;i++) pool.particles.push(new Particle(ax,ay,pool.hue));
-    }
-
-    pool.particles=pool.particles.filter(p=>p.life>0||p.tx!==null);
-    for(const p of pool.particles){
-      p.step(tick);
-      if(csOn) p.decay=0.008;
-      p.draw(phCtx,tick);
-    }
-
-    phCtx.strokeStyle=`hsla(${pool.hue+tick*0.2},60%,70%,0.08)`;
-    phCtx.lineWidth=0.5;
-    const pts=pool.particles;
-    for(let i=0;i<pts.length;i++){
-      for(let j=i+1;j<pts.length;j++){
-        const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y;
-        if(dx*dx+dy*dy<9025){
-          phCtx.beginPath();
-          phCtx.moveTo(pts[i].x,pts[i].y);
-          phCtx.lineTo(pts[j].x,pts[j].y);
-          phCtx.stroke();
+  // countdown ticker
+  const iv=setInterval(()=>{
+    if(phase!==1||!breathActive){clearInterval(iv);return;}
+    breathTick--;
+    if(breathTick<=0){
+      if(breathPhase==='in'){
+        breathPhase='out';
+        breathTick=BREATH_SEC;
+        document.getElementById('breath-instr').textContent='izdihni počasi';
+      } else {
+        breathPhase='in';
+        breathTick=BREATH_SEC;
+        breathCount++;
+        updateDots();
+        document.getElementById('breath-instr').textContent='vdihni počasi';
+        if(breathCount>=TOTAL_BREATHS){
+          breathActive=false;
+          clearInterval(iv);
+          setTimeout(goToAR,600);
         }
       }
     }
-  }
-
-  if(inConvPhase){
-    const cardW=Math.min(window.innerWidth*0.9,340);
-    const cardH=window.innerHeight*0.82;
-    const CX1=(window.innerWidth-cardW)/2;
-    const CX2=CX1+cardW;
-    const CY1=window.innerHeight*0.09;
-    const CY2=CY1+cardH;
-    let total=0,inside=0;
-    for(const pool of pools)
-      for(const p of pool.particles){
-        total++;
-        if(p.x>=CX1&&p.x<=CX2&&p.y>=CY1&&p.y<=CY2) inside++;
-      }
-    if(phAlpha>=0.8&&total>=200&&inside/total>=0.9) csStart();
-  }
-
-  if(csOn&&pools.every(p=>p.particles.length===0)) convergenceStart=null;
-
-  phCtx.restore();
-}
-
-/* ── Video + Canvas fullscreen fix ── */
-function fixVideoSize(){
-  document.querySelectorAll('video').forEach(v=>{
-    if(v.id==='ar-vessel') return;
-    v.style.setProperty('position','fixed','important');
-    v.style.setProperty('top','50%','important');
-    v.style.setProperty('left','50%','important');
-    v.style.setProperty('min-width','100vw','important');
-    v.style.setProperty('min-height','100vh','important');
-    v.style.setProperty('width','auto','important');
-    v.style.setProperty('height','auto','important');
-    v.style.setProperty('transform','translate(-50%,-50%)','important');
-    v.style.setProperty('object-fit','cover','important');
-    v.style.setProperty('opacity','1','important');
-    v.style.setProperty('filter','none','important');
-    v.style.setProperty('z-index','0','important');
-    v.style.setProperty('pointer-events','none','important');
-  });
-  document.querySelectorAll('canvas.a-canvas').forEach(c=>{
-    c.style.setProperty('position','fixed','important');
-    c.style.setProperty('top','0','important');
-    c.style.setProperty('left','0','important');
-    c.style.setProperty('width','100vw','important');
-    c.style.setProperty('height','100vh','important');
-  });
-}
-setInterval(fixVideoSize,300);
-new MutationObserver(()=>fixVideoSize()).observe(document.body,{childList:true,subtree:true});
-
-/* ── Mic ── */
-let micAnalyser=null,micDataArr=null;
-function getMicVolume(){
-  if(!micAnalyser)return 0;
-  micAnalyser.getByteFrequencyData(micDataArr);
-  let s=0;for(let i=0;i<micDataArr.length;i++)s+=micDataArr[i];
-  return Math.min(1,s/micDataArr.length/128);
-}
-/* ── Breathing Screen ── */
-function runBreathing(onDone){
-  const wrap=document.getElementById('p-breath');
-  const glCv=document.getElementById('glCanvas');
-  const arcCv=document.getElementById('arcCanvas');
-  const numEl=document.getElementById('bt-num');
-  const lblIn=document.getElementById('bt-vdihi');
-  const lblEx=document.getElementById('bt-izdihi');
-  const arcCtx=arcCv.getContext('2d');
-  const ringWrap=document.querySelector('.bt-ring-wrap');
-  const S=260;
-
-  const gl=glCv.getContext('webgl');
-  const VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
-  const FS=`precision mediump float;
-uniform vec2 iResolution;uniform float iTime;uniform float iBreath;
-float rand(float n){return fract(sin(n)*43758.5453123);}
-float noise1D(float p){float fl=floor(p);float fc=fract(p);return(mix(rand(fl),rand(fl+1.0),fc)-.5)*2.;}
-float perlin3(vec3 P){
-  vec3 Pi=floor(P);vec3 Pf=P-Pi;vec3 Pf1=Pf-1.0;
-  Pi.xyz=Pi.xyz-floor(Pi.xyz*(1.0/69.0))*69.0;
-  vec3 Pi1=step(Pi,vec3(67.5))*(Pi+1.0);
-  vec4 Pt=vec4(Pi.xy,Pi1.xy)+vec2(50.0,161.0).xyxy;
-  Pt*=Pt;Pt=Pt.xzxz*Pt.yyww;
-  const vec3 SLF=vec3(635.298681,682.357502,668.926525);
-  const vec3 ZI=vec3(48.500388,65.294118,63.934599);
-  vec3 lz=vec3(1.0/(SLF+Pi.zzz*ZI));vec3 hz=vec3(1.0/(SLF+Pi1.zzz*ZI));
-  vec4 hx0=fract(Pt*lz.xxxx);vec4 hx1=fract(Pt*hz.xxxx);
-  vec4 hy0=fract(Pt*lz.yyyy);vec4 hy1=fract(Pt*hz.yyyy);
-  vec4 hz0=fract(Pt*lz.zzzz);vec4 hz1=fract(Pt*hz.zzzz);
-  vec4 gx0=hx0-.49999;vec4 gy0=hy0-.49999;vec4 gz0=hz0-.49999;
-  vec4 gx1=hx1-.49999;vec4 gy1=hy1-.49999;vec4 gz1=hz1-.49999;
-  vec4 gr0=inversesqrt(gx0*gx0+gy0*gy0+gz0*gz0)*(vec2(Pf.x,Pf1.x).xyxy*gx0+vec2(Pf.y,Pf1.y).xxyy*gy0+Pf.zzzz*gz0);
-  vec4 gr1=inversesqrt(gx1*gx1+gy1*gy1+gz1*gz1)*(vec2(Pf.x,Pf1.x).xyxy*gx1+vec2(Pf.y,Pf1.y).xxyy*gy1+Pf1.zzzz*gz1);
-  vec3 bl=Pf*Pf*Pf*(Pf*(Pf*6.0-15.0)+10.0);
-  vec4 r0=mix(gr0,gr1,bl.z);
-  vec4 bl2=vec4(bl.xy,vec2(1.0-bl.xy));
-  return dot(r0,bl2.zxzx*bl2.wwyy)*1.1547005383792515;}
-float p2(vec2 pos,float t){return(perlin3(vec3(pos,t))+1.)*.5;}
-float nf(vec2 pos,float dist,float rot,float t){t*=1.+dist/100.;pos+=vec2(t*rot,0.)*.5;return p2(pos*dist+vec2(dist),t*2.);}
-vec3 fbm(vec2 pos,float t){
-  vec3 n=vec3(.05);pos+=p2(pos*.5,t)*.1;
-  n+=nf(pos,1.,.01,t)*vec3(.25,1.,.5);
-  n+=nf(pos,5.,.025,t)*.85*vec3(.75,1.,1.);
-  n+=nf(pos,10.,.05,t)*.5*vec3(.25,1.,1.);
-  n+=nf(pos,20.,.1,t)*.25*vec3(1.,0.,.2);
-  n+=nf(pos,75.,.15,t)*.1*vec3(1.,1.,1.);
-  return n;}
-float circle(vec2 pos,float r){return smoothstep(30./iResolution.y,-30./iResolution.y,length(pos)-r);}
-float highlight(float c,vec2 pos,float r){float h=smoothstep(0.,r,length(pos));h-=1.-c;return h*(.4+(sin(iTime)+1.)*.1);}
-vec3 hueShift(vec3 col,float adj){
-  const vec3 kRY=vec3(.299,.587,.114);const vec3 kRI=vec3(.596,-.275,-.321);const vec3 kRQ=vec3(.212,-.523,.311);
-  const vec3 kYR=vec3(1.,.956,.621);const vec3 kYG=vec3(1.,-.272,-.647);const vec3 kYB=vec3(1.,-1.107,1.704);
-  float Y=dot(col,kRY);float I=dot(col,kRI);float Q=dot(col,kRQ);
-  float hue=atan(Q,I);float chr=sqrt(I*I+Q*Q);hue+=adj;Q=chr*sin(hue);I=chr*cos(hue);
-  vec3 yiq=vec3(Y,I,Q);return vec3(dot(yiq,kYR),dot(yiq,kYG),dot(yiq,kYB));}
-void main(){
-  vec2 pos=(-iResolution.xy+2.0*gl_FragCoord.xy)/iResolution.y;
-  pos.x+=noise1D(iTime)*.05;pos.y+=noise1D(iTime+10.)*.05;
-  pos+=p2(pos*2.,iTime)*.1;pos*=1.1;
-  float radius=.9+sin(iTime*4.)*.1+iBreath*.12;
-  pos*=.5+pow(length(pos),10.);
-  vec3 n=fbm(pos,iTime);vec3 ci=vec3(circle(pos,radius));vec3 hl=vec3(highlight(ci.r,pos,radius));
-  vec3 res=clamp(ci-n,vec3(0.),vec3(1.));res.rgb=res.bgr;res*=2.;
-  res+=hl*vec3(1.,.2,.5);res=hueShift(res,5.+sin(iTime)+iBreath*2.);res*=1.4;
-  gl_FragColor=vec4(res,1.);}`;
-
-  function mkShader(type,src){
-    const s=gl.createShader(type);
-    gl.shaderSource(s,src);gl.compileShader(s);return s;
-  }
-  const prog=gl.createProgram();
-  gl.attachShader(prog,mkShader(gl.VERTEX_SHADER,VS));
-  gl.attachShader(prog,mkShader(gl.FRAGMENT_SHADER,FS));
-  gl.linkProgram(prog);gl.useProgram(prog);
-  const buf=gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
-  const aPos=gl.getAttribLocation(prog,'a_pos');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
-  const uRes=gl.getUniformLocation(prog,'iResolution');
-  const uTime=gl.getUniformLocation(prog,'iTime');
-  const uBreath=gl.getUniformLocation(prog,'iBreath');
-  gl.uniform2f(uRes,S,S);
-
-  /* Cycle: VDIHI 4s → pause 1s → IZDIHI 4s → pause 1s × 3 */
-  const INHALE=4000,PAUSE=1500,EXHALE=4000,CYCLE=10000,TOTAL=30000;
-  wrap.style.display='flex';
-  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('vis')));
-
-  /* Initial state: small sphere, "start" text */
-  ringWrap.style.transform='scale(0.55)';
-  numEl.style.fontSize='36px';
-  numEl.style.fontFamily='"Courier New",monospace';
-  numEl.style.letterSpacing='0.2em';
-  numEl.style.cursor='pointer';
-  numEl.style.color='rgba(255,255,255,0.85)';
-  numEl.style.textShadow='0 0 20px rgba(0,255,80,0.5)';
-  numEl.style.pointerEvents='auto';
-  numEl.textContent='start';
-
-  const t0=performance.now();
-  let cycleT0=null;
-  let active=true,smoothBreath=0,lastCycleCount=0;
-  const bparts=[];
-
-  numEl.addEventListener('click',async function startClick(){
-    if(cycleT0!==null)return;
-    numEl.style.fontSize='';numEl.style.fontFamily='';numEl.style.letterSpacing='';
-    numEl.style.cursor='';numEl.style.color='';numEl.style.textShadow='';
-    numEl.style.pointerEvents='';numEl.textContent='';
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-      const ac=new(window.AudioContext||window.webkitAudioContext)();
-      const src=ac.createMediaStreamSource(stream);
-      const an=ac.createAnalyser();an.fftSize=256;
-      src.connect(an);
-      micAnalyser=an;micDataArr=new Uint8Array(an.frequencyBinCount);
-    }catch(e){}
-    cycleT0=performance.now();
-  });
-
-  function drawBParts(gt){
-    arcCtx.clearRect(0,0,S,S);
-    const cx=S/2,cy=S/2;
-    if(smoothBreath>0.05){
-      for(let i=0;i<Math.ceil(smoothBreath*4);i++){
-        const ang=Math.random()*Math.PI*2,r2=90+Math.random()*30;
-        bparts.push({x:cx+Math.cos(ang)*r2,y:cy+Math.sin(ang)*r2,
-          vx:Math.cos(ang)*(smoothBreath*18+Math.random()*4),
-          vy:Math.sin(ang)*(smoothBreath*18+Math.random()*4),
-          life:1,hue:120+smoothBreath*60});
-      }
-    }
-    while(bparts.length>150)bparts.shift();
-    for(let i=bparts.length-1;i>=0;i--){
-      const p=bparts[i];
-      const dx=p.x-cx,dy=p.y-cy;
-      const dist=Math.sqrt(dx*dx+dy*dy)||1;
-      const pull=(dist-100)*0.015;
-      p.vx-=(dx/dist)*pull;p.vy-=(dy/dist)*pull;
-      p.vx*=0.94;p.vy*=0.94;
-      p.x+=p.vx;p.y+=p.vy;
-      p.life-=0.018;
-      if(p.life<=0){bparts.splice(i,1);continue;}
-      arcCtx.beginPath();
-      arcCtx.arc(p.x,p.y,Math.max(0.001,p.life*2.5),0,Math.PI*2);
-      arcCtx.fillStyle=`hsla(${p.hue+gt*30},90%,65%,${p.life*0.75})`;
-      arcCtx.fill();
-    }
-  }
-
-  function btTick(now){
-    if(!active)return;
-    const gt=(now-t0)/1000;
-    const mv=getMicVolume();
-    smoothBreath+=(mv-smoothBreath)*0.15;
-    gl.uniform1f(uTime,gt);
-    gl.uniform1f(uBreath,smoothBreath);
-    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-    if(cycleT0!==null){
-      const e=now-cycleT0;
-      const completedCycles=Math.floor(e/CYCLE);
-      if(completedCycles!==lastCycleCount){
-        lastCycleCount=completedCycles;
-        const dots=wrap.querySelectorAll('.bt-dot');
-        dots.forEach((d,i)=>{
-          if(i<completedCycles)d.classList.add('bt-dot-on');
-          else d.classList.remove('bt-dot-on');
-        });
-      }
-      if(e>=TOTAL){
-        active=false;
-        arcCtx.clearRect(0,0,S,S);
-        numEl.textContent='';
-        lblIn.style.color='';lblEx.style.color='';
-        wrap.classList.remove('vis');
-        setTimeout(()=>{wrap.style.display='none';onDone();},1000);
-        return;
-      }
-      const ct=e%CYCLE;
-      let scale;
-      if(ct<INHALE){
-        scale=0.55+(ct/INHALE)*0.80;
-        numEl.textContent=Math.ceil((INHALE-ct)/1000)||1;
-        lblIn.style.color='#00e040';lblEx.style.color='#1a4a1a';
-      }else if(ct<INHALE+PAUSE){
-        scale=1.35;
-        numEl.textContent='';
-        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
-      }else if(ct<INHALE+PAUSE+EXHALE){
-        const x=ct-INHALE-PAUSE;
-        scale=1.35-(x/EXHALE)*0.80;
-        numEl.textContent=Math.ceil((EXHALE-x)/1000)||1;
-        lblIn.style.color='#1a4a1a';lblEx.style.color='#00e040';
-      }else{
-        scale=0.55;
-        numEl.textContent='';
-        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
-      }
-      ringWrap.style.transform=`scale(${scale.toFixed(3)})`;
-    }
-    drawBParts(gt);
-    requestAnimationFrame(btTick);
-  }
-  requestAnimationFrame(btTick);
-}
-
-/* ── AR Setup ── */
-let arMarkerEl=null;
-
-function initAR(){
-  if(arInitialized)return;
-  arInitialized=true;
-  const scene=document.createElement('a-scene');
-  scene.setAttribute('embedded','');
-  scene.setAttribute('arjs','sourceType:webcam;debugUIEnabled:false;uiScanning:no;uiError:no;uiLoading:no;patternRatio:0.5;');
-  scene.setAttribute('renderer','alpha:true;antialias:false;');
-  scene.setAttribute('vr-mode-ui','enabled:false');
-  scene.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2;pointer-events:none;background:transparent;';
-
-  const marker=document.createElement('a-marker');
-  marker.setAttribute('type','pattern');
-  marker.setAttribute('url','pattern-pattern-Planet-A-square.patt');
-  arMarkerEl=marker;
-
-  marker.addEventListener('markerFound',()=>{
-    markerSeen=true;
-    phActive=true;
-    disperseStart=performance.now();
-    document.getElementById('sci').classList.add('on');
-    setTimeout(()=>{ converging=true; }, 12000);
-  });
-  marker.addEventListener('markerLost',()=>{
-    markerSeen=false;
-    phActive=false;
-    converging=false;
-    convergenceStart=null;
-    disperseStart=null;
-    pools.forEach(p=>p.particles=[]);
-    window._targetsSet=false;
-    csOn=false;
-    document.getElementById('cs-overlay').classList.remove('on');
-    document.getElementById('hud').classList.remove('on');
-    document.getElementById('sci').classList.remove('on');
-  });
-
-  scene.appendChild(marker);
-  const cam=document.createElement('a-entity');
-  cam.setAttribute('camera','');
-  scene.appendChild(cam);
-  document.body.appendChild(scene);
-}
-
-/* ── Main Loop ── */
-let p3started=false,motionStarted=false;
-
-function arLoop(){
-  requestAnimationFrame(arLoop);
-  if(phase<2) return;
-  if(markerSeen && phAlpha<1) phAlpha=Math.min(1,phAlpha+FADE_IN);
-  if(!markerSeen && phAlpha>0) phAlpha=Math.max(0,phAlpha-FADE_OUT);
-  if(!markerSeen && phAlpha<=0){
-    pools.forEach(p=>p.particles=[]);
-  }
-  stepParticles();
-  if(markerSeen && !p3started){ p3started=true; setTimeout(startPhase3,60000); }
-}
-
-function startPhase3(){
-  phase=3;
-  document.getElementById('p3').classList.add('on');
-  let n=10;
-  const cd=document.getElementById('countdown');
-  cd.textContent=n;
-  const iv=setInterval(()=>{
-    n--;
-    if(n>0){ cd.textContent=n; }
-    else{ clearInterval(iv); cd.style.display='none'; document.getElementById('end-text').style.display='block'; }
   },1000);
 }
 
-/* ── Weather ── */
+function getMicVol(){
+  if(!analyser)return 0.1+Math.sin(Date.now()/800)*0.08;
+  analyser.getByteFrequencyData(micBuf);
+  // use full spectrum with higher sensitivity
+  let sum=0;
+  for(let i=1;i<micBuf.length;i++) sum+=micBuf[i];
+  const avg=sum/(micBuf.length*255);
+  return Math.min(1, avg*4.5); // boost sensitivity
+}
+
+function updateDots(){
+  for(let i=0;i<5;i++){
+    const d=document.getElementById('d'+i);
+    d.className='bdot'+(i<breathCount?' done':i===breathCount?' active':'');
+  }
+}
+
+function breathLoop(){
+  if(phase!==1){return;}
+  requestAnimationFrame(breathLoop);
+
+  const vol=getMicVol();
+  orbSmooth=orbSmooth*0.88+vol*0.12;
+
+  const boost=breathPhase==='in'?1.0:-0.35;
+  orbTarget=62+(orbSmooth*115)+(boost*20);
+  orbR+=(orbTarget-orbR)*0.055;
+
+  const cx=140,cy=140;
+  bctx.clearRect(0,0,280,280);
+  breathAngle+=0.013;
+  for(let i=0;i<breathNoise.length;i++) breathNoise[i]+=0.0035;
+
+  const pts=64;
+  const noiseAmt=4+orbSmooth*22;
+
+  // glow rings — green
+  for(let ring=3;ring>0;ring--){
+    const gr=bctx.createRadialGradient(cx,cy,0,cx,cy,orbR+ring*16);
+    gr.addColorStop(0,'rgba(0,0,0,0)');
+    gr.addColorStop(0.5,'rgba(0,0,0,0)');
+    gr.addColorStop(1,`rgba(74,255,106,${0.02*ring*(orbSmooth*3+0.5)})`);
+    bctx.beginPath();
+    for(let i=0;i<=pts;i++){
+      const a=(i/pts)*Math.PI*2;
+      const ni=Math.floor((i/pts)*breathNoise.length)%breathNoise.length;
+      const n=Math.sin(breathNoise[ni]+breathAngle*2.2)*noiseAmt*ring*0.35;
+      const r=orbR+ring*16+n;
+      const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+      i===0?bctx.moveTo(x,y):bctx.lineTo(x,y);
+    }
+    bctx.closePath();bctx.fillStyle=gr;bctx.fill();
+  }
+
+  // main blob — green
+  bctx.beginPath();
+  for(let i=0;i<=pts;i++){
+    const a=(i/pts)*Math.PI*2;
+    const ni=Math.floor((i/pts)*breathNoise.length)%breathNoise.length;
+    const n=Math.sin(breathNoise[ni]+breathAngle*1.6)*noiseAmt
+           +Math.cos(breathNoise[(ni+16)%breathNoise.length]+breathAngle*0.85)*noiseAmt*0.38;
+    const r=orbR+n;
+    const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+    i===0?bctx.moveTo(x,y):bctx.lineTo(x,y);
+  }
+  bctx.closePath();
+  const gMain=bctx.createRadialGradient(cx-8,cy-8,2,cx,cy,orbR+noiseAmt);
+  gMain.addColorStop(0,`rgba(160,255,170,${0.6+orbSmooth*0.3})`);
+  gMain.addColorStop(0.5,`rgba(74,200,90,${0.3+orbSmooth*0.2})`);
+  gMain.addColorStop(1,'rgba(20,80,30,0.05)');
+  bctx.fillStyle=gMain;bctx.fill();
+  bctx.strokeStyle=`rgba(100,255,120,${0.4+orbSmooth*0.45})`;
+  bctx.lineWidth=1;bctx.stroke();
+}
+
+// ═══════════════════════════════════════════════
+// TRANSITION → AR
+// ═══════════════════════════════════════════════
+async function goToAR(){
+  phase=2;
+  document.getElementById('phase-breath').classList.add('out');
+  document.getElementById('phase-breath').style.display='none';
+
+  document.getElementById('video').style.display='none';
+
+  // show waiting screen while permission dialogs resolve
+  const waitEl=document.createElement('div');
+  waitEl.style.cssText='position:fixed;inset:0;z-index:300;background:#000;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0.3em;color:rgba(255,255,255,0.4);';
+  waitEl.textContent='INITIALIZING CAMERA...';
+  document.body.appendChild(waitEl);
+
+  // init AR.js — triggers camera permission dialog
+  initARjs();
+
+  // wait until AR.js camera video is actually streaming
+  await new Promise(resolve=>{
+    const check=setInterval(()=>{
+      // AR.js may place video in body or inside a-scene
+      const videos=[...document.querySelectorAll('video')];
+      const camVid=videos.find(v=>v.id!=='ar-vessel'&&v.readyState>=2&&v.videoWidth>0);
+      if(camVid){clearInterval(check);resolve();}
+    },200);
+    setTimeout(()=>{clearInterval(check);resolve();},8000);
+  });
+
+  waitEl.remove();
+
+  await fetchWeather();
+  buildParticles();
+  floats=Array.from({length:18},()=>{const f=new FloatNum();f.life=Math.random()*f.maxLife;return f;});
+
+  document.getElementById('phase-ar').classList.add('visible');
+  requestAnimationFrame(arLoop);
+
+  setTimeout(()=>document.getElementById('hud-tl').classList.add('show'),400);
+  setTimeout(()=>document.getElementById('hud-tr').classList.add('show'),700);
+  setTimeout(()=>document.getElementById('hud-bl').classList.add('show'),1100);
+  setTimeout(showSciData,1500);
+  setTimeout(startGlitch,6000);
+}
+
+// ═══════════════════════════════════════════════
+// WEATHER
+// ═══════════════════════════════════════════════
 async function fetchWeather(){
   try{
-    const url=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_radiation,vapour_pressure_deficit&hourly=soil_moisture_0_to_1cm&timezone=auto&forecast_days=1`;
-    const d=await(await fetch(url)).json();
-    const c=d.current, h=new Date().getHours();
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,direct_radiation,vapour_pressure_deficit&hourly=soil_moisture_0_to_1cm,evapotranspiration&timezone=auto&forecast_days=1`);
+    const d=await r.json();const c=d.current;
+    // hourly: find closest hour index
+    const now=new Date();
+    const hIdx=now.getHours();
+    const sm=d.hourly?.soil_moisture_0_to_1cm?.[hIdx]??0.3;
+    const et=d.hourly?.evapotranspiration?.[hIdx]??2.5;
     weather={
       temp:c.temperature_2m??14,
       humidity:c.relative_humidity_2m??65,
       radiation:c.direct_radiation??180,
       wind:c.wind_speed_10m??1.8,
-      soilMoisture:d.hourly?.soil_moisture_0_to_1cm?.[h]??0.3,
-      vpd:c.vapour_pressure_deficit??0.8
+      soilMoisture:sm,          // 0–0.5 m³/m³
+      evapotranspiration:et,    // mm/h (positive = loss)
+      vpd:c.vapour_pressure_deficit??0.8  // kPa: low=wet, high=stress
     };
-    document.getElementById('v-s').textContent=weather.radiation.toFixed(0)+' W/m²';
-    document.getElementById('v-h').textContent=weather.humidity.toFixed(0)+'%';
-    document.getElementById('v-t').textContent=weather.temp.toFixed(1)+'°C';
-    document.getElementById('v-w').textContent=weather.wind.toFixed(1)+' m/s';
-    updateBars(weather.radiation,weather.humidity,weather.temp,weather.wind);
   }catch(e){}
+  updateHUD();
+}
+function updateHUD(){
+  document.getElementById('v-rad').textContent=weather.radiation.toFixed(1)+' W/m²';
+  document.getElementById('v-hum').textContent=weather.humidity.toFixed(0)+'%';
+  document.getElementById('v-tmp').textContent=weather.temp.toFixed(1)+'°C';
+  document.getElementById('v-wnd').textContent=weather.wind.toFixed(1)+' m/s';
+  document.getElementById('v-time').textContent=new Date().toTimeString().slice(0,8);
+}
+setInterval(()=>{if(phase>=2)updateHUD();},1000);
+setInterval(()=>{if(phase>=2)fetchWeather();},60000);
+
+// science data calculation
+function showSciData(){
+  // photosynthesis: rough estimate based on radiation + humidity
+  const rad=weather.radiation;
+  const hum=weather.humidity;
+  const tmp=weather.temp;
+
+  // CO2 absorbed today (simplified: 8h daylight, radiation scaling)
+  const hoursLight=Math.max(0,Math.min(10,(rad/500)*10));
+  const co2PerHour=6+(rad/500)*5+(hum/100)*2;
+  const co2Today=(co2PerHour*hoursLight*0.7).toFixed(1);
+
+  // water potential (MPa) — more negative when dry/hot
+  const psi=(-0.8-(tmp/30)*0.6-(1-hum/100)*0.8).toFixed(2);
+
+  // flow rate estimate
+  const flowRate=(15+(rad/500)*35+(hum/100)*20).toFixed(0);
+
+  document.getElementById('sci-main').textContent=
+    `danes je to drevo absorbiralo ${co2Today} kg CO₂`;
+  document.getElementById('sci-sub').textContent=
+    `vodni potencial ${psi} MPa  ·  tok ${flowRate} ml/h  ·  sevanje ${rad.toFixed(0)} W/m²`;
+
+  document.getElementById('sci-panel').classList.add('show');
 }
 
-function updateBars(solar,humid,temp,wind){
-  document.getElementById('val-solar').textContent=Math.round(solar)+' W/m²';
-  document.getElementById('val-humid').textContent=Math.round(humid)+' %';
-  document.getElementById('val-temp').textContent=temp.toFixed(1)+' °C';
-  document.getElementById('val-wind').textContent=wind.toFixed(1)+' m/s';
-  document.getElementById('fill-solar').style.width=Math.min(solar/1000*100,100)+'%';
-  document.getElementById('fill-humid').style.width=Math.min(humid,100)+'%';
-  document.getElementById('fill-temp').style.width=Math.min((temp+10)/50*100,100)+'%';
-  document.getElementById('fill-wind').style.width=Math.min(wind/20*100,100)+'%';
+// ═══════════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════════
+class Particle{
+  constructor(c){this.cfg=c;this.reset();}
+  reset(){
+    const c=this.cfg;
+    this.x=W*(c.xMin+Math.random()*(c.xMax-c.xMin));
+    this.y=H*(0.05+Math.random()*0.9);
+    const wf=weather.wind/10;
+    this.vx=c.vxBase+(Math.random()-0.5)*c.vxSpread+wf*(c.wd||0);
+    this.vy=c.vyBase-Math.random()*c.vyRange;
+    this.size=c.sMin+Math.random()*c.sRange;
+    this.maxLife=Math.floor(c.lMin+Math.random()*c.lRange);
+    this.life=Math.random()*this.maxLife;
+    this.r=c.r;this.g=c.g;this.b=c.b;this.op=c.op;
+  }
+  update(){this.x+=this.vx;this.y+=this.vy;this.life--;if(this.life<=0||this.x<-20||this.x>W+20||this.y<-20)this.reset();}
+  draw(){
+    const f=this.life/this.maxLife<0.12?(this.life/this.maxLife)/0.12:1;
+    mctx.beginPath();mctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    mctx.fillStyle=`rgba(${this.r},${this.g},${this.b},${this.op*f})`;mctx.fill();
+  }
+}
+function buildParticles(){
+  const rad=Math.max(0.1,weather.radiation/500);
+  const hum=weather.humidity/100;
+  const tmp=Math.max(0.1,(weather.temp+10)/45);
+  const wnd=Math.max(0.1,weather.wind/15);
+  sunP=Array.from({length:Math.floor(38+rad*55)},()=>new Particle({r:255,g:210,b:60,xMin:0.1,xMax:0.9,vxBase:0,vxSpread:0.6,wd:0.3,vyBase:0.55*rad,vyRange:0.75*rad,sMin:1.2,sRange:2.8,lMin:120,lRange:160,op:0.6+rad*0.3}));
+  waterP=Array.from({length:Math.floor(28+hum*45)},()=>new Particle({r:80,g:190,b:255,xMin:0,xMax:1,vxBase:0.2,vxSpread:0.8,wd:0.5,vyBase:0.15*hum,vyRange:0.25,sMin:1,sRange:2.2,lMin:180,lRange:200,op:0.4+hum*0.45}));
+  heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:255,g:90,b:40,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
+  windP=Array.from({length:Math.floor(14+wnd*32)},()=>new Particle({r:255,g:255,b:255,xMin:-0.1,xMax:0.6,vxBase:1.1*wnd,vxSpread:0.4,wd:1,vyBase:0.05,vyRange:0.3,sMin:0.5,sRange:1.3,lMin:100,lRange:150,op:0.3+wnd*0.45}));
 }
 
-/* ── Card System ── */
-const CS_DATA=[
-  {id:'tree',
-   title:'Picea abies',sub:'Navadna smreka',
-   img:'tree-scale.png',
-   data:['Starost: ~130 let','Višina: do 60 m','Mestni gozd Celje']},
-  {id:'air',
-   title:'Čuvar zraka',
-   img:'tree-canopy.png',imgBg:true,
-   text:'Mestni gozd je občina kupila med letoma 1883 in 1892. Picea abies je občutljiva na onesnažen zrak — dejstvo, da to drevo tu zdravo stoji, pomeni, da je zrak v Celju čist.'},
-  {id:'sun',
-   title:'Sonce danes',live:true,
-   text:'Smola tega drevesa se destilira v kolofonijo — brez nje violinski lok ne bi zdržal.'},
-  {id:'breath',
-   big:'Ta drevo pozna tvoje dihanje.'},
-  {id:'mic',
-   big:'Pospravi telefon.\nObjami drevo.',isMic:true}
-];
-
-let csIdx=0,csOn=false,csRaf=null,csAscIv=null,csT0=null;
-let csFinaleTrigger=null,csLastNext=0;
-const CS_DUR=10000;
-let csCW=0,csCH=0;
-const CS_SET='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*{}[]<>/|;:,.~`=+-_';
-let csGrid=[];
-const CS_GW=8,CS_GH=13;
-
-function csInitMotion(){
-  if(typeof DeviceMotionEvent!=='undefined'&&
-     typeof DeviceMotionEvent.requestPermission==='function'){
-    DeviceMotionEvent.requestPermission()
-      .then(r=>{if(r==='granted')csMotion();})
-      .catch(()=>csMotion());
-  }else{csMotion();}
-}
-
-let csStill=null;
-function csMotion(){
-  let last={x:0,y:0,z:0};
-  window.addEventListener('devicemotion',e=>{
-    if(phase<2||!markerSeen||csOn){csStill=null;return;}
-    const a=e.accelerationIncludingGravity||{};
-    const dx=(a.x||0)-last.x,dy=(a.y||0)-last.y,dz=(a.z||0)-last.z;
-    const d=Math.sqrt(dx*dx+dy*dy+dz*dz);
-    last={x:a.x||0,y:a.y||0,z:a.z||0};
-    if(d<0.3){
-      if(!csStill)csStill=performance.now();
-      /* static trigger disabled — density check only */
-    }else{csStill=null;}
-  });
-}
-
-function csStart(){
-  if(csOn)return;
-  converging=false;
-  csOn=true;csIdx=0;
-  csCW=Math.min(window.innerWidth*0.9,340);
-  csCH=Math.round(window.innerHeight*0.82);
-  const cv=document.getElementById('cs-canvas');
-  cv.width=Math.round(csCW);cv.height=csCH;
-  const ov=document.getElementById('cs-overlay');
-  ov.style.transition='none';ov.style.opacity='0';
-  ov.classList.add('on');
-  requestAnimationFrame(()=>{
-    ov.style.transition='opacity 0.5s';ov.style.opacity='1';
-    csLaunchCard();
-  });
-}
-
-function csLaunchCard(){
-  csT0=null;csGrid=[];
-  csUpdateProgress();
-  csUpdatePeek();
-  csBuild(csIdx);
-  const hint=document.getElementById('cs-next-hint');
-  if(hint)hint.style.display=csIdx<CS_DATA.length-1?'block':'none';
-  if(csIdx===0){
-    csAscIv=setInterval(csTick,150);
-    csRaf=requestAnimationFrame(csBeam);
-  }else{
-    document.getElementById('cs-content').style.clipPath='none';
-    const pb=document.getElementById('cs-pb-'+csIdx);
-    if(pb){pb.classList.remove('active');pb.classList.add('done');pb.style.setProperty('--fill','100%');}
-    if(csIdx===CS_DATA.length-1)csWaitFinale();
+class FloatNum{
+  constructor(){this.spawn();}
+  spawn(){
+    const pool=[
+      {t:weather.temp.toFixed(4),col:'255,90,40'},
+      {t:weather.humidity.toFixed(4),col:'80,190,255'},
+      {t:weather.radiation.toFixed(4),col:'255,210,60'},
+      {t:weather.wind.toFixed(4),col:'255,255,255'},
+      {t:(Math.random()*0.01).toFixed(6),col:'200,255,210'},
+    ];
+    const p=pool[Math.floor(Math.random()*pool.length)];
+    this.text=p.t;this.col=p.col;
+    this.x=Math.random()*W;this.y=H*(0.1+Math.random()*0.8);
+    this.vy=-(0.05+Math.random()*0.14);
+    this.life=Math.floor(160+Math.random()*260);this.maxLife=this.life;
+    this.sz=9+Math.floor(Math.random()*4);
+  }
+  update(){this.y+=this.vy;this.life--;if(this.life<=0||this.y<-20)this.spawn();}
+  draw(){
+    const r=this.life/this.maxLife;
+    const f=r<0.08?r/0.08:r>0.9?(1-r)/0.1:1;
+    mctx.font=`${this.sz}px 'Courier New',monospace`;
+    mctx.shadowColor='rgba(0,0,0,0.9)';mctx.shadowBlur=7;
+    mctx.fillStyle=`rgba(${this.col},${0.55*f})`;
+    mctx.fillText(this.text,this.x,this.y);
+    mctx.shadowBlur=0;
   }
 }
 
-function csNext(){
-  if(!csOn)return;
-  const now=Date.now();
-  if(now-csLastNext<400)return;
-  csLastNext=now;
-  if(csFinaleTrigger){
-    clearTimeout(csFinaleTrigger.timer);
-    csFinaleTrigger=null;
+// ═══════════════════════════════════════════════
+// AR LOOP
+// ═══════════════════════════════════════════════
+function arLoop(){
+  if(phase<2)return;
+  requestAnimationFrame(arLoop);
+
+  // ── marker visibility polling ──
+  if(!arMarkerEl) arMarkerEl=document.querySelector('a-marker');
+  const nowVisible=!!(arMarkerEl&&arMarkerEl.object3D&&arMarkerEl.object3D.visible);
+  if(nowVisible&&!markerVisible){
+    // just found
+    markerVisible=true;
+    const vid=document.getElementById('ar-vessel');
+    if(vid)vid.play().catch(()=>{});
+    if(!markerLockParticles.length)
+      markerLockParticles=Array.from({length:40},()=>new LockedParticle());
+    spawnVNets();
+  } else if(!nowVisible&&markerVisible){
+    // just lost
+    markerVisible=false;
+    markerLockParticles=[];
+    clearVNets();
   }
-  if(csIdx>=CS_DATA.length-1){startReset();return;}
-  if(csRaf){cancelAnimationFrame(csRaf);csRaf=null;}
-  if(csAscIv){clearInterval(csAscIv);csAscIv=null;}
-  const pb=document.getElementById('cs-pb-'+csIdx);
-  if(pb){pb.classList.remove('active');pb.classList.add('done');pb.style.setProperty('--fill','100%');}
-  csIdx++;
-  const ov=document.getElementById('cs-overlay');
-  ov.style.transition='opacity 0.2s';ov.style.opacity='0';
-  setTimeout(()=>{
-    ov.style.transition='opacity 0.3s';ov.style.opacity='1';
-    csLaunchCard();
-  },200);
+
+  mctx.clearRect(0,0,W,H);
+
+  [...sunP,...waterP,...heatP,...windP].forEach(p=>{p.update();p.draw();});
+  floats.forEach(f=>{f.update();f.draw();});
+  if(markerVisible){markerLockParticles.forEach(p=>{p.update();p.draw();});}
+  tickVascular();
 }
 
-function csUpdateProgress(){
-  for(let i=0;i<CS_DATA.length;i++){
-    const pb=document.getElementById('cs-pb-'+i);
-    if(!pb)continue;
-    pb.classList.remove('done','active');
-    pb.style.setProperty('--fill','0%');
-    if(i<csIdx)pb.classList.add('done');
-    else if(i===csIdx)pb.classList.add('active');
-  }
+// ═══════════════════════════════════════════════
+// PHASE 3 — GLITCH
+// ═══════════════════════════════════════════════
+function startGlitch(){
+  phase=3;
 }
 
-function csUpdatePeek(){
-  const pk=document.getElementById('cs-peek');
-  if(!pk)return;
-  const next=csIdx+1;
-  if(next>=CS_DATA.length){pk.style.visibility='hidden';return;}
-  pk.style.visibility='visible';
-  const nd=CS_DATA[next];
-  const ttl=(nd.title||nd.big||'').replace('\n',' ');
-  pk.innerHTML=`<span class="cs-peek-lbl">${(nd.id||'').toUpperCase()}</span><span class="cs-peek-ttl">${ttl}</span>`;
-}
 
-function csBuild(i){
-  const c=CS_DATA[i];
-  let h='';
-  if(c.big){
-    const txt=c.big.replace('\n','<br>');
-    h=`<div style="display:flex;align-items:center;justify-content:center;height:100%;padding:0 12px;text-align:center"><p class="cs-big">${txt}</p></div>`;
-    const el=document.getElementById('cs-content');
-    el.innerHTML=h;el.style.clipPath='inset(0 0 100% 0)';
-    return;
-  }
-  if(c.imgBg){
-    h+=`<img class="cs-img-bg" src="${c.img}" alt="">`;
-  }
-  h+=`<div style="position:relative;z-index:1">`;
-  if(c.img&&!c.imgBg){
-    h+=`<img class="cs-img" src="${c.img}" alt="">`;
-  }
-  h+=`<div class="cs-title">${c.title}</div>`;
-  if(c.sub)h+=`<div class="cs-sub">${c.sub}</div>`;
-  h+=`<div class="cs-div"></div>`;
-  if(c.data)c.data.forEach(d=>h+=`<div class="cs-data">${d}</div>`);
-  if(c.live){
-    const rad=weather.radiation||0;
-    const pct=Math.min(100,(rad/1200)*100).toFixed(1);
-    h+=`<div class="cs-solar-val">${rad.toFixed(0)}</div>`;
-    h+=`<div class="cs-solar-unit">W / m²</div>`;
-    h+=`<div class="cs-solar-bar-wrap"><div class="cs-solar-bar" style="width:${pct}%"></div></div>`;
-  }
-  if(c.text)h+=`<div class="cs-text">${c.text}</div>`;
-  h+=`</div>`;
-  const el=document.getElementById('cs-content');
-  el.innerHTML=h;el.style.clipPath='inset(0 0 100% 0)';
-}
+// ═══════════════════════════════════════════════
+// VASCULAR NETWORK
+// ═══════════════════════════════════════════════
+const VNET_COLORS=['255,246,0','49,225,247','216,0,166','255,255,255'];
+let vNets=[];
 
-function csTick(){
-  const cols=Math.floor(csCW/CS_GW),rows=Math.floor(csCH/CS_GH);
-  const by=csT0?Math.min((performance.now()-csT0)/CS_DUR,1)*csCH:0;
-  const br=Math.ceil(by/CS_GH);
-  if(!csGrid.length){
-    for(let r=0;r<rows;r++){
-      csGrid[r]=[];
-      for(let c=0;c<cols;c++)csGrid[r][c]=CS_SET[Math.random()*CS_SET.length|0];
+class VNet{
+  constructor(block,color){
+    this.block=block;
+    this.color=color||'160,238,255';
+    this.edges=[];
+    this.pulses=[];
+    this.age=0;
+    this.maxAge=Math.floor(200+Math.random()*180);
+    this._grow();
+  }
+  _grow(){
+    const{dx:bx,dy:by,dw:bw,dh:bh}=this.block;
+    const root={x:bx+bw*0.2+Math.random()*bw*0.6,y:by+bh*0.92};
+    const grow=(node,dir,depth,maxD)=>{
+      if(depth>=maxD)return;
+      const branches=depth<2?2:Math.random()<0.5?2:1;
+      for(let b=0;b<branches;b++){
+        const ang=dir+(Math.random()-0.5)*(depth<2?0.45:0.75);
+        const len=bh*(0.14+Math.random()*0.18)/(depth*0.4+1);
+        const child={x:node.x+Math.sin(ang)*len,y:node.y-Math.cos(ang)*len};
+        const w=Math.max(0.3,1.9-depth*0.3);
+        this.edges.push({from:node,to:child,w,depth});
+        grow(child,ang,depth+1,maxD);
+      }
+    };
+    grow(root,0,0,6);
+    this._pulse();this._pulse();this._pulse();
+  }
+  _pulse(){
+    if(!this.edges.length)return;
+    const ei=Math.floor(Math.random()*this.edges.length);
+    this.pulses.push({ei,t:0,spd:0.012+Math.random()*0.018});
+  }
+  update(){
+    this.age++;
+    for(let i=this.pulses.length-1;i>=0;i--){
+      this.pulses[i].t+=this.pulses[i].spd;
+      if(this.pulses[i].t>1)this.pulses.splice(i,1);
     }
-  }else{
-    for(let r=br;r<rows;r++)
-      for(let c=0;c<cols;c++)
-        if(Math.random()<0.25)csGrid[r][c]=CS_SET[Math.random()*CS_SET.length|0];
+    if(Math.random()<0.08)this._pulse();
+  }
+  _drawEdges(ctx,baseA){
+    for(const e of this.edges){
+      const ea=baseA*(1-e.depth*0.09);
+      ctx.save();
+      ctx.strokeStyle=`rgba(160,238,255,${ea*0.65})`;
+      ctx.lineWidth=e.w;
+      ctx.shadowColor='rgba(140,230,255,0.95)';
+      ctx.shadowBlur=3+e.w*2.5;
+      ctx.beginPath();ctx.moveTo(e.from.x,e.from.y);ctx.lineTo(e.to.x,e.to.y);ctx.stroke();
+      ctx.restore();
+    }
+  }
+  _drawPulses(ctx,baseA){
+    const col=this.color;
+    for(const p of this.pulses){
+      const e=this.edges[p.ei];if(!e)continue;
+      const px=e.from.x+(e.to.x-e.from.x)*p.t;
+      const py=e.from.y+(e.to.y-e.from.y)*p.t;
+      const pr=1.8+e.w;
+      ctx.save();
+      const g=ctx.createRadialGradient(px,py,0,px,py,pr*3.5);
+      g.addColorStop(0,`rgba(255,255,255,${baseA*0.95})`);
+      g.addColorStop(0.35,`rgba(${col},${baseA*0.55})`);
+      g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g;
+      ctx.beginPath();ctx.arc(px,py,pr*3.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=`rgba(${col},${baseA})`;
+      ctx.beginPath();ctx.arc(px,py,pr*0.5,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    }
+  }
+  draw(globalA){
+    if(globalA<=0)return;
+    const lr=this.age/this.maxAge;
+    const fade=lr<0.08?lr/0.08:lr>0.8?(1-lr)/0.2:1;
+    const baseA=fade*globalA;
+    this._drawEdges(vctx,baseA);
+    this._drawPulses(vctx,baseA);
+  }
+  get dead(){return this.age>=this.maxAge;}
+}
+
+function spawnVNets(){
+  const mx=markerScreen.x||W/2, my=markerScreen.y||H/2;
+  const count=8+Math.floor(Math.random()*3);
+  for(let i=0;i<count;i++){
+    const ang=Math.random()*Math.PI*2;
+    const r=150+Math.random()*150;
+    const cx=mx+Math.cos(ang)*r;
+    const cy=my+Math.sin(ang)*r;
+    const sz=80+Math.random()*60;
+    const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
+    vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
   }
 }
 
-function csBeam(now){
-  if(!csT0)csT0=now;
-  const prog=Math.min((now-csT0)/CS_DUR,1);
-  const y=prog*csCH;
-  const cv=document.getElementById('cs-canvas');
-  const ctx=cv.getContext('2d');
-  ctx.clearRect(0,0,csCW,csCH);
+function clearVNets(){
+  vNets=[];
+}
 
-  const cols=Math.floor(csCW/CS_GW),rows=Math.floor(csCH/CS_GH);
-  const sr=Math.ceil(y/CS_GH);
-  ctx.font=`${CS_GH}px 'Courier New',monospace`;
-  ctx.fillStyle='rgba(160,255,160,0.6)';
-  for(let r=sr;r<rows;r++){
-    if(!csGrid[r])continue;
-    for(let c2=0;c2<cols;c2++)
-      ctx.fillText(csGrid[r][c2]||' ',c2*CS_GW,(r+1)*CS_GH);
+function tickVascular(){
+  vctx.clearRect(0,0,W,H);
+  for(let i=vNets.length-1;i>=0;i--){
+    vNets[i].update();
+    vNets[i].draw(1);
+    if(vNets[i].dead)vNets.splice(i,1);
   }
+  if(markerVisible&&vNets.length<4) spawnVNets();
+}
 
-  [[60,0.05],[32,0.10],[14,0.18],[5,0.35]].forEach(([bw,a])=>{
-    const hh=bw*1.2;
-    const g=ctx.createLinearGradient(0,y-hh,0,y+hh);
-    g.addColorStop(0,'transparent');
-    g.addColorStop(0.5,`rgba(140,60,255,${a})`);
-    g.addColorStop(1,'transparent');
-    ctx.fillStyle=g;ctx.fillRect(0,y-hh,csCW,hh*2);
+
+
+// ═══════════════════════════════════════════════
+// MINDAR
+// ═══════════════════════════════════════════════
+
+class LockedParticle{
+  constructor(){this.reset();}
+  reset(){
+    const ang=Math.random()*Math.PI*2;
+    const r=20+Math.random()*55;
+    this.x=markerScreen.x+Math.cos(ang)*r;
+    this.y=markerScreen.y+Math.sin(ang)*r;
+    this.vx=(Math.random()-0.5)*0.7;
+    this.vy=-(0.2+Math.random()*0.7);
+    this.size=0.8+Math.random()*2.5;
+    this.life=Math.floor(80+Math.random()*120);
+    this.maxLife=this.life;
+    const cols=[[74,255,106],[160,238,255],[255,210,60],[200,255,210]];
+    const c=cols[Math.floor(Math.random()*cols.length)];
+    this.r=c[0];this.g=c[1];this.b=c[2];
+  }
+  update(){
+    const dx=markerScreen.x-this.x,dy=markerScreen.y-this.y;
+    this.x+=this.vx+dx*0.004;
+    this.y+=this.vy+dy*0.004;
+    this.life--;
+    if(this.life<=0)this.reset();
+  }
+  draw(){
+    const f=this.life/this.maxLife<0.15?(this.life/this.maxLife)/0.15:1;
+    mctx.beginPath();mctx.arc(this.x,this.y,this.size,0,Math.PI*2);
+    mctx.fillStyle=`rgba(${this.r},${this.g},${this.b},${0.75*f})`;mctx.fill();
+  }
+}
+
+
+
+function initARjs(){
+  const sceneEl=document.createElement('a-scene');
+  sceneEl.setAttribute('embedded','');
+  sceneEl.setAttribute('arjs','sourceType: webcam; debugUIEnabled: false; uiScanning: no; uiError: no; uiLoading: no; patternRatio: 0.5;');
+  sceneEl.setAttribute('renderer','alpha:true;logarithmicDepthBuffer:true;');
+  sceneEl.setAttribute('vr-mode-ui','enabled:false');
+  sceneEl.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2;pointer-events:none;background:transparent;';
+
+  const assets=document.createElement('a-assets');
+  const vid=document.createElement('video');
+  vid.id='ar-vessel';vid.src='vessel.mp4';
+  vid.setAttribute('loop','true');vid.setAttribute('crossorigin','anonymous');
+  vid.setAttribute('playsinline','');vid.setAttribute('webkit-playsinline','');
+  vid.muted=true;
+  assets.appendChild(vid);sceneEl.appendChild(assets);
+
+  const marker=document.createElement('a-marker');
+  marker.setAttribute('preset','hiro');
+  arMarkerEl=marker;
+
+  // vessel video on 4 sides around marker, hidden until found
+  const positions=[
+    {pos:'-2.2 0.05 0', rot:'-90 0 0'},
+    {pos:'2.2 0.05 0',  rot:'-90 0 0'},
+    {pos:'0 0.05 -2.2', rot:'-90 0 0'},
+    {pos:'0 0.05 2.2',  rot:'-90 0 0'},
+  ];
+  const planes=positions.map(p=>{
+    const pl=document.createElement('a-video');
+    pl.setAttribute('src','#ar-vessel');
+    pl.setAttribute('width','1.6');pl.setAttribute('height','1.0');
+    pl.setAttribute('position',p.pos);pl.setAttribute('rotation',p.rot);
+    pl.setAttribute('visible','false');
+    marker.appendChild(pl);
+    return pl;
   });
-  ctx.fillStyle='rgba(255,255,255,0.92)';
-  ctx.fillRect(0,y-0.5,csCW,1);
 
-  for(let i=0;i<80;i++){
-    const px=Math.random()*csCW;
-    const py=y+Math.sin(i*1.9+now*0.003)*7;
-    const white=Math.random()<0.7;
-    ctx.beginPath();ctx.arc(px,py,white?1:1.5,0,Math.PI*2);
-    ctx.fillStyle=white?'rgba(255,255,255,0.9)':'rgba(180,100,255,0.85)';
-    ctx.fill();
-    if(Math.random()<0.22){
-      const ang=Math.random()*Math.PI*2,dist=Math.random()*22;
-      const sx=px+Math.cos(ang)*dist,sy=py+Math.sin(ang)*dist;
-      if(sx>=0&&sx<=csCW&&sy>=0&&sy<=csCH){
-        ctx.beginPath();ctx.arc(sx,sy,0.5,0,Math.PI*2);
-        ctx.fillStyle=white?'rgba(255,255,255,0.35)':'rgba(180,100,255,0.35)';
-        ctx.fill();
+  marker.addEventListener('markerFound',()=>{
+    markerVisible=true;
+    vid.play().catch(()=>{});
+    planes.forEach(pl=>pl.setAttribute('visible','true'));
+  });
+  marker.addEventListener('markerLost',()=>{
+    markerVisible=false;
+    planes.forEach(pl=>pl.setAttribute('visible','false'));
+  });
+
+  sceneEl.appendChild(marker);
+
+  const camEnt=document.createElement('a-entity');
+  camEnt.setAttribute('camera','');sceneEl.appendChild(camEnt);
+  document.body.appendChild(sceneEl);
+
+  // kill AR.js hiro download popup safely
+  const popupKiller=new MutationObserver(()=>{
+    document.querySelectorAll('body > div').forEach(d=>{
+      if(d.id||d.classList.length)return; // skip our own divs
+      const bg=window.getComputedStyle(d).backgroundColor;
+      if(bg&&bg!=='rgba(0, 0, 0, 0)'&&bg!=='transparent'){
+        d.remove();
+      }
+    });
+  });
+  popupKiller.observe(document.body,{childList:true});
+
+  // ── real marker screen position via RAF polling ──
+  function updateMarkerScreenPos(){
+    const T=window.THREE||window.AFRAME&&AFRAME.THREE;
+    if(T&&marker.object3D&&camEnt.object3D){
+      const mPos=new T.Vector3();
+      marker.object3D.getWorldPosition(mPos);
+      const cam=camEnt.getObject3D('camera');
+      if(cam){
+        const projected=mPos.clone().project(cam);
+        const nx=(projected.x+1)/2;
+        const ny=(-projected.y+1)/2;
+        if(markerVisible&&nx>-0.2&&nx<1.2&&ny>-0.2&&ny<1.2){
+          markerScreen.x=nx*W;
+          markerScreen.y=ny*H;
+        }
       }
     }
+    requestAnimationFrame(updateMarkerScreenPos);
   }
+  sceneEl.addEventListener('loaded',()=>{
+    updateMarkerScreenPos();
+    // style camera feed
+    const camStyle='position:fixed;top:50%;left:50%;min-width:100vw;min-height:100vh;width:auto;height:auto;transform:translate(-50%,-50%);object-fit:cover;opacity:1;filter:none;z-index:1;pointer-events:none;';
+    document.querySelectorAll('body > video').forEach(v=>{
+      if(v.id==='ar-vessel')return;
+      v.style.cssText=camStyle;
+    });
+  });
 
-  const pb=document.getElementById('cs-pb-'+csIdx);
-  if(pb)pb.style.setProperty('--fill',Math.round(prog*100)+'%');
+  const camStyle2='position:fixed;top:50%;left:50%;min-width:100vw;min-height:100vh;width:auto;height:auto;transform:translate(-50%,-50%);object-fit:cover;opacity:1;filter:none;z-index:1;pointer-events:none;';
+  const obs=new MutationObserver(()=>{
+    document.querySelectorAll('body > video').forEach(v=>{
+      if(v.id==='ar-vessel')return;
+      v.style.cssText=camStyle2;
+    });
+  });
+  obs.observe(document.body,{childList:true,subtree:false});
 
-  document.getElementById('cs-content').style.clipPath=
-    prog>=1?'none':`inset(0 0 ${Math.round((1-prog)*100)}% 0)`;
-
-  if(prog<1){csRaf=requestAnimationFrame(csBeam);}
-  else{
-    ctx.clearRect(0,0,csCW,csCH);
-    if(csAscIv){clearInterval(csAscIv);csAscIv=null;}
-    const pb2=document.getElementById('cs-pb-'+csIdx);
-    if(pb2){pb2.classList.remove('active');pb2.classList.add('done');}
-    if(CS_DATA[csIdx].isMic)csWaitFinale();
-  }
+  // marker visibility is handled by polling in arLoop
 }
 
-function csWaitFinale(){
-  if(csFinaleTrigger)return;
-  const el=document.getElementById('cs-countdown');
+// ═══════════════════════════════════════════════
+// PHASE 4 — POEM + COUNTDOWN
+// ═══════════════════════════════════════════════
+function startText(){
+  phase=4;
+
+  const pt=document.getElementById('phase-text');
+  pt.classList.add('visible');
+
+  // poem lines
+  ['pl0','pl1','pl2','pl3'].forEach((id,i)=>{
+    setTimeout(()=>document.getElementById(id).classList.add('show'),500+i*900);
+  });
+
+  // after poem: fade out → countdown
+  setTimeout(()=>{
+    pt.style.opacity='0';
+    setTimeout(startCountdown,1500);
+  },5500);
+}
+
+function startCountdown(){
+  const cw=document.getElementById('countdown-wrap');
+  const cn=document.getElementById('cdown-num');
+  cw.classList.add('visible');
+
   let n=10;
-  if(el){el.textContent=n;el.style.display='block';}
+  cn.textContent=n;
+
   const iv=setInterval(()=>{
-    if(!csFinaleTrigger){
-      clearInterval(iv);
-      if(el){el.textContent='';el.style.display='none';}
-      return;
-    }
     n--;
-    if(el)el.textContent=n;
+    cn.style.opacity='0';
+    setTimeout(()=>{
+      cn.textContent=n;
+      cn.style.opacity='1';
+    },200);
     if(n<=0){
       clearInterval(iv);
-      if(el)el.style.display='none';
-      startReset();
+      setTimeout(()=>{
+        cw.style.opacity='0';
+        document.getElementById('phase-ar').style.opacity='0';
+        document.getElementById('video').style.opacity='0';
+      },500);
     }
   },1000);
-  csFinaleTrigger={timer:iv};
 }
 
-/* Touch/tap navigation */
-(()=>{
-  const ov=document.getElementById('cs-overlay');
-  let ty0=0,tx0=0;
-  ov.addEventListener('touchstart',e=>{
-    ty0=e.touches[0].clientY;tx0=e.touches[0].clientX;
-  },{passive:true});
-  ov.addEventListener('touchend',e=>{
-    const dy=e.changedTouches[0].clientY-ty0;
-    const dx=e.changedTouches[0].clientX-tx0;
-    if(Math.abs(dy)<80&&Math.abs(dx)<80)csNext();
-    else if(dy<-40)csNext();
-  },{passive:true});
-  ov.addEventListener('click',e=>{e.stopPropagation();csNext();});
-})();
-
-/* ── Reset / Finale ── */
-function startReset(){
-  if(window._resetting)return;
-  window._resetting=true;
-  if(csFinaleTrigger){clearTimeout(csFinaleTrigger.timer);csFinaleTrigger=null;}
-  const overlay=document.getElementById('cs-finale');
-  overlay.style.opacity='0';
-  overlay.style.display='block';
-  overlay.style.transition='opacity 1.2s';
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{overlay.style.opacity='1';}));
-  setTimeout(()=>{
-    markerSeen=false;phActive=false;converging=false;
-    convergenceStart=null;disperseStart=null;phAlpha=0;tick=0;
-    pools.forEach(p=>p.particles=[]);window._targetsSet=false;
-    csOn=false;csIdx=0;p3started=false;motionStarted=false;phase=0;
-    document.getElementById('cs-overlay').classList.remove('on');
-    document.getElementById('sci').classList.remove('on');
-    document.getElementById('hud').classList.remove('on');
-    phCtx.clearRect(0,0,phCv.width,phCv.height);
-    const p0=document.getElementById('p0');
-    p0.style.display='flex';p0.classList.remove('out');
-    overlay.style.transition='opacity 0.8s';overlay.style.opacity='0';
-    setTimeout(()=>{overlay.style.display='none';overlay.style.transition='';window._resetting=false;},800);
-  },6200);
-}
-
-/* ── Start ── */
-document.getElementById('btn-start').addEventListener('click',()=>{
-  document.getElementById('p0').classList.add('out');
-  setTimeout(()=>document.getElementById('p0').style.display='none',900);
-
-  runBreathing(async()=>{
-    document.getElementById('p-wait').classList.add('on');
-    initAR();
-    await new Promise(resolve=>{
-      const iv=setInterval(()=>{
-        const cams=[...document.querySelectorAll('video')].filter(v=>v.readyState>=2&&v.videoWidth>0);
-        if(cams.length){clearInterval(iv);resolve();}
-      },300);
-      setTimeout(()=>{clearInterval(iv);resolve();},10000);
-    });
-    document.getElementById('p-wait').classList.remove('on');
-    await fetchWeather();
-    setInterval(fetchWeather,60000);
-    phase=2;
-    document.getElementById('p2').classList.add('on');
-    setTimeout(()=>document.getElementById('tree-id').classList.add('on'),900);
-    setTimeout(()=>document.getElementById('sci').classList.add('on'),1800);
-    if(!arLoopStarted){arLoopStarted=true;arLoop();}
-    document.body.addEventListener('touchstart',()=>{
-      if(phase>=2)document.getElementById('hud').classList.add('on');
-    },{passive:true});
-    document.body.addEventListener('touchend',()=>{
-      document.getElementById('hud').classList.remove('on');
-    },{passive:true});
-  });
-});
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+updateDots();
 </script>
 </body>
 </html>
