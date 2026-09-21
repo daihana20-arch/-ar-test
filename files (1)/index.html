@@ -643,6 +643,7 @@ class VNet{
     this.pulses=[];
     this.age=0;
     this.maxAge=Math.floor(200+Math.random()*180);
+    this.offsetY=0;
     this._grow();
   }
   _grow(){
@@ -670,13 +671,14 @@ class VNet{
   }
   update(){
     this.age++;
+    this.offsetY+=0.07;
     for(let i=this.pulses.length-1;i>=0;i--){
       this.pulses[i].t+=this.pulses[i].spd;
       if(this.pulses[i].t>1)this.pulses.splice(i,1);
     }
     if(Math.random()<0.08)this._pulse();
   }
-  _drawEdges(ctx,baseA){
+  _drawEdges(ctx,baseA,oy){
     const blurMult=vnetBoostActive?2:1;
     for(const e of this.edges){
       const ea=baseA*(1-e.depth*0.09);
@@ -685,16 +687,16 @@ class VNet{
       ctx.lineWidth=e.w;
       ctx.shadowColor='rgba(140,230,255,0.95)';
       ctx.shadowBlur=(3+e.w*2.5)*blurMult;
-      ctx.beginPath();ctx.moveTo(e.from.x,e.from.y);ctx.lineTo(e.to.x,e.to.y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(e.from.x,e.from.y+oy);ctx.lineTo(e.to.x,e.to.y+oy);ctx.stroke();
       ctx.restore();
     }
   }
-  _drawPulses(ctx,baseA){
+  _drawPulses(ctx,baseA,oy){
     const col=this.color;
     for(const p of this.pulses){
       const e=this.edges[p.ei];if(!e)continue;
       const px=e.from.x+(e.to.x-e.from.x)*p.t;
-      const py=e.from.y+(e.to.y-e.from.y)*p.t;
+      const py=e.from.y+(e.to.y-e.from.y)*p.t+oy;
       const pr=(0.9+e.w*0.5)*(vnetBoostActive?1.5:1);
       ctx.save();
       const g=ctx.createRadialGradient(px,py,0,px,py,pr*3.5);
@@ -714,10 +716,10 @@ class VNet{
     const fade=lr<0.08?lr/0.08:lr>0.8?(1-lr)/0.2:1;
     const baseA=fade*globalA*(vnetBoostActive?1.8:1);
     if(!this._dbgLogged){this._dbgLogged=true;console.log('[draw] baseA='+baseA.toFixed(3)+' fade='+fade.toFixed(3)+' edges='+this.edges.length);}
-    this._drawEdges(vctx,baseA);
-    this._drawPulses(vctx,baseA);
+    this._drawEdges(vctx,baseA,this.offsetY);
+    this._drawPulses(vctx,baseA,this.offsetY);
   }
-  get dead(){return this.age>=this.maxAge;}
+  get dead(){return this.age>=this.maxAge||this.block.dy+this.block.dh+this.offsetY>H+50;}
 }
 
 function spawnVNets(){
