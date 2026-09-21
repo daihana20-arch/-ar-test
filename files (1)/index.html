@@ -867,7 +867,7 @@ function initARjs(){
   });
   marker.addEventListener('markerLost',()=>{
     markerVisible=false;
-    clearVNets();
+    if(!vnetBoostActive) clearVNets();
     planes.forEach(pl=>pl.setAttribute('visible','false'));
   });
 
