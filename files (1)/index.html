@@ -727,14 +727,16 @@ function spawnVNets(){
   const mx=markerScreen.x||W/2, my=markerScreen.y||H/2;
   const count=8+Math.floor(Math.random()*3);
   for(let i=0;i<count;i++){
-    const ang=Math.random()*Math.PI*2;
-    const r=150+Math.random()*150;
-    const cx=mx+Math.cos(ang)*r;
-    const cy=my+Math.sin(ang)*r;
-    const sz=80+Math.random()*60;
-    const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
-    if(i===0) console.log('[spawn] W='+W+' H='+H+' mx='+Math.round(mx)+' my='+Math.round(my)+' block={dx:'+Math.round(block.dx)+',dy:'+Math.round(block.dy)+',dw:'+Math.round(block.dw)+',dh:'+Math.round(block.dh)+'}');
-    vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
+    setTimeout(()=>{
+      const ang=Math.random()*Math.PI*2;
+      const r=150+Math.random()*150;
+      const cx=mx+Math.cos(ang)*r;
+      const cy=my+Math.sin(ang)*r;
+      const sz=80+Math.random()*60;
+      const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
+      if(i===0) console.log('[spawn] W='+W+' H='+H+' mx='+Math.round(mx)+' my='+Math.round(my)+' block={dx:'+Math.round(block.dx)+',dy:'+Math.round(block.dy)+',dw:'+Math.round(block.dw)+',dh:'+Math.round(block.dh)+'}');
+      vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
+    },i*150);
   }
 }
 
@@ -748,13 +750,15 @@ function activateVNetBoost(){
   const extra=20+Math.floor(Math.random()*11);
   const mx=markerScreen.x||W/2, my=markerScreen.y||H/2;
   for(let i=0;i<extra;i++){
-    const ang=Math.random()*Math.PI*2;
-    const r=150+Math.random()*150;
-    const cx=mx+Math.cos(ang)*r;
-    const cy=my+Math.sin(ang)*r;
-    const sz=80+Math.random()*60;
-    const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
-    vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
+    setTimeout(()=>{
+      const ang=Math.random()*Math.PI*2;
+      const r=150+Math.random()*150;
+      const cx=mx+Math.cos(ang)*r;
+      const cy=my+Math.sin(ang)*r;
+      const sz=80+Math.random()*60;
+      const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
+      vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
+    },i*150);
   }
   setTimeout(()=>{vnetBoostActive=false;vnetTiltFired=false;},60000);
 }
