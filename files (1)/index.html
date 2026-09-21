@@ -758,7 +758,11 @@ function activateVNetBoost(){
 }
 
 function setupTiltDetection(){
+  console.log('[tilt] setupTiltDetection registered');
   window.addEventListener('deviceorientation',e=>{
+    const bVal=e.beta!==null?e.beta.toFixed(1):'null';
+    const d=document.getElementById('dbg');
+    if(d) d.innerHTML='β='+bVal+' fired='+vnetTiltFired+' marker='+markerVisible+'<br>'+d.innerHTML.split('<br>').slice(0,5).join('<br>');
     if(!markerVisible||vnetTiltFired)return;
     if(e.beta!==null&&e.beta>55){
       vnetTiltFired=true;
