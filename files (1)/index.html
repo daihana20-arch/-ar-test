@@ -634,6 +634,8 @@ let vNets=[];
 let _vnetLogN=0;
 let vnetBoostActive=false;
 let vnetTiltFired=false;
+let baselineBeta=null;
+let _lastBeta=null;
 
 class VNet{
   constructor(block,color){
@@ -766,11 +768,14 @@ function activateVNetBoost(){
 function setupTiltDetection(){
   console.log('[tilt] setupTiltDetection registered');
   window.addEventListener('deviceorientation',e=>{
+    if(e.beta!==null) _lastBeta=e.beta;
     const bVal=e.beta!==null?e.beta.toFixed(1):'null';
+    const baseVal=baselineBeta!==null?baselineBeta.toFixed(1):'--';
+    const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
     const d=document.getElementById('dbg');
-    if(d) d.innerHTML='β='+bVal+' fired='+vnetTiltFired+' marker='+markerVisible+'<br>'+d.innerHTML.split('<br>').slice(0,5).join('<br>');
-    if(!markerVisible||vnetTiltFired)return;
-    if(e.beta!==null&&e.beta>55){
+    if(d) d.innerHTML='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired+'<br>'+d.innerHTML.split('<br>').slice(0,5).join('<br>');
+    if(!markerVisible||vnetTiltFired||baselineBeta===null)return;
+    if(e.beta!==null&&e.beta>baselineBeta+25){
       vnetTiltFired=true;
       activateVNetBoost();
     }
@@ -869,6 +874,7 @@ function initARjs(){
   marker.addEventListener('markerFound',()=>{
     console.log('[VNet] markerFound fired');
     markerVisible=true;
+    baselineBeta=_lastBeta;
     spawnVNets();
     vid.play().catch(()=>{});
     planes.forEach(pl=>pl.setAttribute('visible','true'));
