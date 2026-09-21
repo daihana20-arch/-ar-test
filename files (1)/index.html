@@ -636,6 +636,7 @@ let vnetBoostActive=false;
 let vnetTiltFired=false;
 let baselineBeta=null;
 let _lastBeta=null;
+const TILT_THRESHOLD=150;
 
 class VNet{
   constructor(block,color){
@@ -774,8 +775,8 @@ function setupTiltDetection(){
     const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
     const dt=document.getElementById('dbg-tilt');
     if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired;
-    if(!markerVisible||vnetTiltFired||baselineBeta===null)return;
-    if(e.beta!==null&&e.beta>baselineBeta+25){
+    if(!markerVisible||vnetTiltFired)return;
+    if(e.beta!==null&&e.beta>TILT_THRESHOLD){
       vnetTiltFired=true;
       activateVNetBoost();
     }
