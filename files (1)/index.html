@@ -621,6 +621,7 @@ function startGlitch(){
 // ═══════════════════════════════════════════════
 const VNET_COLORS=['255,246,0','49,225,247','216,0,166','255,255,255'];
 let vNets=[];
+let _vnetLogN=0;
 
 class VNet{
   constructor(block,color){
@@ -699,6 +700,7 @@ class VNet{
     const lr=this.age/this.maxAge;
     const fade=lr<0.08?lr/0.08:lr>0.8?(1-lr)/0.2:1;
     const baseA=fade*globalA;
+    if(!this._dbgLogged){this._dbgLogged=true;console.log('[draw] baseA='+baseA.toFixed(3)+' fade='+fade.toFixed(3)+' edges='+this.edges.length);}
     this._drawEdges(vctx,baseA);
     this._drawPulses(vctx,baseA);
   }
@@ -717,6 +719,7 @@ function spawnVNets(){
     const cy=my+Math.sin(ang)*r;
     const sz=80+Math.random()*60;
     const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
+    if(i===0) console.log('[spawn] W='+W+' H='+H+' mx='+Math.round(mx)+' my='+Math.round(my)+' block={dx:'+Math.round(block.dx)+',dy:'+Math.round(block.dy)+',dw:'+Math.round(block.dw)+',dh:'+Math.round(block.dh)+'}');
     vNets.push(new VNet(block,VNET_COLORS[i%VNET_COLORS.length]));
   }
 }
@@ -727,7 +730,7 @@ function clearVNets(){
 
 function tickVascular(){
   vctx.clearRect(0,0,W,H);
-  console.log('[VNet] tickVascular drawing', vNets.length, 'nets');
+  if(vNets.length>0&&_vnetLogN++<10) console.log('[tick#'+_vnetLogN+'] nets='+vNets.length+' edges0='+vNets[0].edges.length);
   for(let i=vNets.length-1;i>=0;i--){
     vNets[i].update();
     vNets[i].draw(1);
