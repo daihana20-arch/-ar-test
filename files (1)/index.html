@@ -701,6 +701,7 @@ class VNet{
 }
 
 function spawnVNets(){
+  console.log('[VNet] spawnVNets called, vNets.length=', vNets.length);
   const mx=markerScreen.x||W/2, my=markerScreen.y||H/2;
   const count=8+Math.floor(Math.random()*3);
   for(let i=0;i<count;i++){
@@ -720,6 +721,7 @@ function clearVNets(){
 
 function tickVascular(){
   vctx.clearRect(0,0,W,H);
+  console.log('[VNet] tickVascular drawing', vNets.length, 'nets');
   for(let i=vNets.length-1;i>=0;i--){
     vNets[i].update();
     vNets[i].draw(1);
@@ -804,6 +806,7 @@ function initARjs(){
   });
 
   marker.addEventListener('markerFound',()=>{
+    console.log('[VNet] markerFound fired');
     markerVisible=true;
     vid.play().catch(()=>{});
     planes.forEach(pl=>pl.setAttribute('visible','true'));
