@@ -636,6 +636,7 @@ let vnetBoostActive=false;
 let vnetTiltFired=false;
 let baselineBeta=null;
 let _lastBeta=null;
+let markerWasSeen=false;
 const TILT_THRESHOLD=150;
 
 class VNet{
@@ -775,7 +776,7 @@ function setupTiltDetection(){
     const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
     const dt=document.getElementById('dbg-tilt');
     if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired+' marker='+markerVisible;
-    if(!markerVisible||vnetTiltFired)return;
+    if(vnetTiltFired||!markerWasSeen)return;
     if(e.beta!==null&&e.beta>TILT_THRESHOLD){
       vnetTiltFired=true;
       activateVNetBoost();
@@ -875,6 +876,7 @@ function initARjs(){
   marker.addEventListener('markerFound',()=>{
     console.log('[VNet] markerFound fired');
     markerVisible=true;
+    markerWasSeen=true;
     baselineBeta=_lastBeta;
     spawnVNets();
     vid.play().catch(()=>{});
