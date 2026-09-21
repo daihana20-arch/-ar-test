@@ -725,7 +725,7 @@ function tickVascular(){
     vNets[i].draw(1);
     if(vNets[i].dead)vNets.splice(i,1);
   }
-  if(markerVisible&&vNets.length<4) spawnVNets();
+  if(markerVisible&&vNets.length<1) spawnVNets();
 }
 
 
