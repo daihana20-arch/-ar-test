@@ -791,7 +791,8 @@ function initARjs(){
   assets.appendChild(vid);sceneEl.appendChild(assets);
 
   const marker=document.createElement('a-marker');
-  marker.setAttribute('preset','hiro');
+  marker.setAttribute('type','pattern');
+  marker.setAttribute('url','pattern-pattern-Planet-A-square.patt');
   arMarkerEl=marker;
 
   // vessel video on 4 sides around marker, hidden until found
