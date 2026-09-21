@@ -218,9 +218,9 @@ body>video:not(#ar-vessel){
 const _log=console.log.bind(console);
 console.log=(...a)=>{
   _log(...a);
-  const d=document.getElementById('dbg');
-  if(d){d.innerHTML=a.join(' ')+'<br>'+d.innerHTML;
-    d.innerHTML=d.innerHTML.split('<br>').slice(0,6).join('<br>');}
+  const dl=document.getElementById('dbg-log');
+  if(dl){dl.innerHTML=a.join(' ')+'<br>'+dl.innerHTML;
+    dl.innerHTML=dl.innerHTML.split('<br>').slice(0,6).join('<br>');}
 };
 // ═══════════════════════════════════════════════
 // CONFIG
@@ -772,8 +772,8 @@ function setupTiltDetection(){
     const bVal=e.beta!==null?e.beta.toFixed(1):'null';
     const baseVal=baselineBeta!==null?baselineBeta.toFixed(1):'--';
     const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
-    const d=document.getElementById('dbg');
-    if(d) d.innerHTML='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired+'<br>'+d.innerHTML.split('<br>').slice(0,5).join('<br>');
+    const dt=document.getElementById('dbg-tilt');
+    if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired;
     if(!markerVisible||vnetTiltFired||baselineBeta===null)return;
     if(e.beta!==null&&e.beta>baselineBeta+25){
       vnetTiltFired=true;
@@ -996,6 +996,6 @@ function startCountdown(){
 // ═══════════════════════════════════════════════
 updateDots();
 </script>
-<div id="dbg" style="position:fixed;top:0;left:0;right:0;z-index:99000;color:#fff;font-size:18px;font-weight:bold;background:rgba(255,0,0,0.85);padding:12px;pointer-events:none;font-family:monospace;word-break:break-all"><span id="dbg-boost">BOOST: off</span><br>DEBUG READY</div>
+<div id="dbg" style="position:fixed;top:0;left:0;right:0;z-index:99000;color:#fff;font-size:18px;font-weight:bold;background:rgba(255,0,0,0.85);padding:12px;pointer-events:none;font-family:monospace;word-break:break-all"><span id="dbg-boost">BOOST: off</span><br><span id="dbg-tilt">β=- base=- fired=-</span><br><span id="dbg-log">DEBUG READY</span></div>
 </body>
 </html>
