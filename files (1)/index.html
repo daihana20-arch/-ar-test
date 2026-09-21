@@ -774,7 +774,7 @@ function setupTiltDetection(){
     const baseVal=baselineBeta!==null?baselineBeta.toFixed(1):'--';
     const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
     const dt=document.getElementById('dbg-tilt');
-    if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired;
+    if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired+' marker='+markerVisible;
     if(!markerVisible||vnetTiltFired)return;
     if(e.beta!==null&&e.beta>TILT_THRESHOLD){
       vnetTiltFired=true;
