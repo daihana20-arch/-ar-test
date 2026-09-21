@@ -706,6 +706,7 @@ class VNet{
 }
 
 function spawnVNets(){
+  alert('spawnVNets called, count=' + (8+Math.floor(Math.random()*3)));
   console.log('[VNet] spawnVNets called, vNets.length=', vNets.length);
   const mx=markerScreen.x||W/2, my=markerScreen.y||H/2;
   const count=8+Math.floor(Math.random()*3);
@@ -811,6 +812,7 @@ function initARjs(){
   });
 
   marker.addEventListener('markerFound',()=>{
+    alert('markerFound fired');
     console.log('[VNet] markerFound fired');
     markerVisible=true;
     spawnVNets();
