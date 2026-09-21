@@ -91,8 +91,8 @@ body>video:not(#ar-vessel){
 #phase-breath{background:transparent!important}
 
 /* HUD */
-.hud{position:fixed;z-index:20;font-size:15px;letter-spacing:0.12em;line-height:2;text-shadow:0 0 10px rgba(0,0,0,1);pointer-events:none;opacity:0;transition:opacity 1.8s}
-#hud-tl{top:24px;left:20px}
+.hud{position:fixed;z-index:20;font-size:22px;letter-spacing:0.12em;line-height:2;text-shadow:0 0 10px rgba(0,0,0,1);pointer-events:none;opacity:0;transition:opacity 1.8s}
+#hud-tl{top:24px;left:20px;background:rgba(0,0,0,0.5);padding:6px 10px;border-radius:4px}
 #hud-tr{top:24px;right:20px;text-align:right;color:rgba(255,255,255,0.3)}
 #hud-bl{bottom:44px;left:20px;color:rgba(255,255,255,0.3);font-size:9px}
 .hl{color:rgba(255,255,255,0.3);margin-right:6px}
@@ -279,9 +279,13 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
   ov.classList.add('out');
   setTimeout(()=>ov.style.display='none',900);
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    try{const p=await DeviceOrientationEvent.requestPermission();if(p==='granted')setupTiltDetection();}
-    catch(e){}
+    try{
+      const p=await DeviceOrientationEvent.requestPermission();
+      console.log('[tilt] permission='+p);
+      if(p==='granted')setupTiltDetection();
+    }catch(e){console.log('[tilt] permission error: '+e);}
   }else{
+    console.log('[tilt] no requestPermission, setting up directly');
     setupTiltDetection();
   }
   // テスト用：深呼吸スキップ → 直接AR
@@ -691,7 +695,7 @@ class VNet{
       const e=this.edges[p.ei];if(!e)continue;
       const px=e.from.x+(e.to.x-e.from.x)*p.t;
       const py=e.from.y+(e.to.y-e.from.y)*p.t;
-      const pr=(1.8+e.w)*(vnetBoostActive?1.5:1);
+      const pr=(0.9+e.w*0.5)*(vnetBoostActive?1.5:1);
       ctx.save();
       const g=ctx.createRadialGradient(px,py,0,px,py,pr*3.5);
       g.addColorStop(0,`rgba(255,255,255,${baseA*0.95})`);
