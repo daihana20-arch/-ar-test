@@ -71,7 +71,8 @@ body>video:not(#ar-vessel){
   transition:opacity 1.5s ease;
 }
 #phase-breath.out{opacity:0;pointer-events:none;display:none!important}
-#breath-canvas{display:block;background:transparent;visibility:hidden}
+#breath-canvas{display:block;background:transparent}
+.b-label{font-size:10px;letter-spacing:0.4em;text-transform:uppercase;color:rgba(255,255,255,0.25)}
 #breath-instr{font-size:12px;letter-spacing:0.28em;color:rgba(255,255,255,0.4);text-align:center;min-height:18px;transition:opacity 0.5s}
 #breath-dots{display:flex;gap:12px}
 .bdot{width:7px;height:7px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);transition:all 0.6s}
@@ -143,6 +144,39 @@ body>video:not(#ar-vessel){
   text-shadow:0 0 40px rgba(255,255,255,0.15);
   transition:opacity 0.4s;
 }
+
+/* ── PHASE SILENCE ── */
+#phase-silence{
+  position:fixed;inset:0;z-index:110;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  opacity:0;pointer-events:none;
+  transition:opacity 1.2s ease;
+}
+#phase-silence.visible{opacity:1}
+#silence-orb{
+  width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%,rgba(160,255,170,0.7) 0%,rgba(74,200,90,0.3) 50%,rgba(20,80,30,0.05) 100%);
+  box-shadow:0 0 30px rgba(74,255,106,0.3),0 0 60px rgba(74,255,106,0.1);
+  animation:silenceOrb 3s ease-in-out infinite;
+}
+@keyframes silenceOrb{
+  0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(74,255,106,0.3),0 0 60px rgba(74,255,106,0.1);}
+  50%{transform:scale(1.12);box-shadow:0 0 50px rgba(74,255,106,0.55),0 0 90px rgba(74,255,106,0.2);}
+}
+#silence-title{
+  font-size:10px;letter-spacing:0.4em;color:rgba(255,255,255,0.6);text-transform:uppercase;text-align:center;
+}
+#silence-bar-wrap{
+  width:220px;height:2px;background:rgba(255,255,255,0.1);border-radius:1px;overflow:hidden;
+}
+#silence-meter{
+  height:100%;width:0%;background:#4aff6a;border-radius:1px;
+  box-shadow:0 0 6px rgba(74,255,106,0.8);
+  transition:width 10s linear;
+}
+#silence-desc{
+  font-size:9px;letter-spacing:0.22em;color:rgba(255,255,255,0.3);text-align:center;
+}
 </style>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
@@ -169,6 +203,16 @@ body>video:not(#ar-vessel){
     <div class="bdot" id="d3"></div>
     <div class="bdot" id="d4"></div>
   </div>
+</div>
+
+<!-- PHASE SILENCE -->
+<div id="phase-silence">
+  <div id="silence-orb"></div>
+  <p id="silence-title">AKUMULACIJA TIŠINE</p>
+  <div id="silence-bar-wrap">
+    <div id="silence-meter"></div>
+  </div>
+  <p id="silence-desc">Ostanite tiho, da napolnite energijo.</p>
 </div>
 
 <!-- PHASE 2+3 -->
@@ -215,13 +259,6 @@ body>video:not(#ar-vessel){
 </div>
 
 <script>
-const _log=console.log.bind(console);
-console.log=(...a)=>{
-  _log(...a);
-  const dl=document.getElementById('dbg-log');
-  if(dl){dl.innerHTML=a.join(' ')+'<br>'+dl.innerHTML;
-    dl.innerHTML=dl.innerHTML.split('<br>').slice(0,6).join('<br>');}
-};
 // ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
@@ -288,10 +325,7 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
     console.log('[tilt] no requestPermission, setting up directly');
     setupTiltDetection();
   }
-  // テスト用：深呼吸スキップ → 直接AR
-  await goToAR();
-  // 本番に戻す場合は上の行を下に変更：
-  // await startBreath();
+  await startBreath();
 });
 
 // ═══════════════════════════════════════════════
@@ -335,11 +369,28 @@ async function startBreath(){
         if(breathCount>=TOTAL_BREATHS){
           breathActive=false;
           clearInterval(iv);
-          setTimeout(goToAR,600);
+          setTimeout(startSilence,600);
         }
       }
     }
   },1000);
+}
+
+// ═══════════════════════════════════════════════
+// PHASE SILENCE
+// ═══════════════════════════════════════════════
+function startSilence(){
+  phase=1.5;
+  const el=document.getElementById('phase-silence');
+  el.classList.add('visible');
+  const meter=document.getElementById('silence-meter');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    meter.style.width='100%';
+  }));
+  setTimeout(()=>{
+    el.classList.remove('visible');
+    setTimeout(goToAR,1200);
+  },10000);
 }
 
 function getMicVol(){
@@ -802,8 +853,6 @@ function setupTiltDetection(){
     const bVal=e.beta!==null?e.beta.toFixed(1):'null';
     const baseVal=baselineBeta!==null?baselineBeta.toFixed(1):'--';
     const thresh=baselineBeta!==null?(baselineBeta+25).toFixed(1):'--';
-    const dt=document.getElementById('dbg-tilt');
-    if(dt) dt.textContent='β='+bVal+' base='+baseVal+' thr='+thresh+' fired='+vnetTiltFired+' marker='+markerVisible;
     if(vnetTiltFired||!markerWasSeen)return;
     if(e.beta!==null&&e.beta>TILT_THRESHOLD){
       vnetTiltFired=true;
@@ -813,8 +862,6 @@ function setupTiltDetection(){
 }
 
 function tickVascular(){
-  const _bs=document.getElementById('dbg-boost');
-  if(_bs) _bs.innerHTML=vnetBoostActive?'<span style="background:#ff0;color:#000;padding:0 4px">BOOST: ACTIVE</span>':'BOOST: off';
   vctx.clearRect(0,0,W,H);
   if(vNets.length>0&&_vnetLogN++<10) console.log('[tick#'+_vnetLogN+'] nets='+vNets.length+' edges0='+vNets[0].edges.length);
   for(let i=vNets.length-1;i>=0;i--){
@@ -1029,6 +1076,5 @@ function startCountdown(){
 // ═══════════════════════════════════════════════
 updateDots();
 </script>
-<div id="dbg" style="position:fixed;top:0;left:0;right:0;z-index:99000;color:#fff;font-size:18px;font-weight:bold;background:rgba(255,0,0,0.85);padding:12px;pointer-events:none;font-family:monospace;word-break:break-all"><span id="dbg-boost">BOOST: off</span><br><span id="dbg-tilt">β=- base=- fired=-</span><br><span id="dbg-log">DEBUG READY</span></div>
 </body>
 </html>
