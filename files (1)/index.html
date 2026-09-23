@@ -741,6 +741,7 @@ function arLoop(){
   if(nowVisible&&!markerVisible){
     // just found
     markerVisible=true;
+    startVNetGrowth();
     const vid=document.getElementById('ar-vessel');
     if(vid)vid.play().catch(()=>{});
     if(!markerLockParticles.length)
