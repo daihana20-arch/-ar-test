@@ -806,11 +806,11 @@ class VNet{
         grow(child,ang,depth+1,maxD);
       }
     };
-    grow(root,0,0,6);
+    grow(root,0,0,4);
     this._pulse();this._pulse();this._pulse();
   }
   _pulse(){
-    if(!this.edges.length)return;
+    if(!this.edges.length||this.pulses.length>=3)return;
     const ei=Math.floor(Math.random()*this.edges.length);
     this.pulses.push({ei,t:0,spd:0.012+Math.random()*0.018});
   }
@@ -824,26 +824,30 @@ class VNet{
     if(Math.random()<0.08)this._pulse();
   }
   _drawEdges(ctx,baseA,oy){
-    const blurMult=vnetBoostActive?2:1;
+    ctx.save();
+    ctx.shadowBlur=0;
     for(const e of this.edges){
       const ea=baseA*(1-e.depth*0.09);
-      ctx.save();
+      ctx.strokeStyle=`rgba(160,238,255,${ea*0.18})`;
+      ctx.lineWidth=e.w*3.5;
+      ctx.beginPath();ctx.moveTo(e.from.x,e.from.y+oy);ctx.lineTo(e.to.x,e.to.y+oy);ctx.stroke();
+    }
+    for(const e of this.edges){
+      const ea=baseA*(1-e.depth*0.09);
       ctx.strokeStyle=`rgba(160,238,255,${ea*0.65})`;
       ctx.lineWidth=e.w;
-      ctx.shadowColor='rgba(140,230,255,0.95)';
-      ctx.shadowBlur=(3+e.w*2.5)*blurMult;
       ctx.beginPath();ctx.moveTo(e.from.x,e.from.y+oy);ctx.lineTo(e.to.x,e.to.y+oy);ctx.stroke();
-      ctx.restore();
     }
+    ctx.restore();
   }
   _drawPulses(ctx,baseA,oy){
     const col=this.color;
+    ctx.save();
     for(const p of this.pulses){
       const e=this.edges[p.ei];if(!e)continue;
       const px=e.from.x+(e.to.x-e.from.x)*p.t;
       const py=e.from.y+(e.to.y-e.from.y)*p.t+oy;
       const pr=(0.9+e.w*0.5)*(vnetBoostActive?1.5:1);
-      ctx.save();
       const g=ctx.createRadialGradient(px,py,0,px,py,pr*3.5);
       g.addColorStop(0,`rgba(255,255,255,${baseA*0.95})`);
       g.addColorStop(0.35,`rgba(${col},${baseA*0.55})`);
@@ -852,15 +856,14 @@ class VNet{
       ctx.beginPath();ctx.arc(px,py,pr*3.5,0,Math.PI*2);ctx.fill();
       ctx.fillStyle=`rgba(${col},${baseA})`;
       ctx.beginPath();ctx.arc(px,py,pr*0.5,0,Math.PI*2);ctx.fill();
-      ctx.restore();
     }
+    ctx.restore();
   }
   draw(globalA){
     if(globalA<=0)return;
     const lr=this.age/this.maxAge;
     const fade=lr<0.08?lr/0.08:lr>0.8?(1-lr)/0.2:1;
     const baseA=fade*globalA*(vnetBoostActive?1.8:1);
-    if(!this._dbgLogged){this._dbgLogged=true;console.log('[draw] baseA='+baseA.toFixed(3)+' fade='+fade.toFixed(3)+' edges='+this.edges.length);}
     this._drawEdges(vctx,baseA,this.offsetY);
     this._drawPulses(vctx,baseA,this.offsetY);
   }
@@ -885,7 +888,7 @@ function clearVNets(){
   vNets=[];
 }
 
-const MAX_TOTAL=90;
+const MAX_TOTAL=45;
 let vnetGrowTimer=null;
 
 function startVNetGrowth(){
@@ -904,7 +907,7 @@ function startVNetGrowth(){
         vNets.push(new VNet(block,cols[Math.floor(Math.random()*cols.length)]));
       },Math.random()*200);
     }
-  },250);
+  },400);
 }
 
 function stopVNetGrowth(){
@@ -945,7 +948,6 @@ function setupTiltDetection(){
 
 function tickVascular(){
   vctx.clearRect(0,0,W,H);
-  if(vNets.length>0&&_vnetLogN++<10) console.log('[tick#'+_vnetLogN+'] nets='+vNets.length+' edges0='+vNets[0].edges.length);
   for(let i=vNets.length-1;i>=0;i--){
     vNets[i].update();
     vNets[i].draw(1);
