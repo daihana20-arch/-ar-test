@@ -1041,8 +1041,6 @@ function initARjs(){
   });
   marker.addEventListener('markerLost',()=>{
     markerVisible=false;
-    stopVNetGrowth();
-    if(!vnetBoostActive) clearVNets();
     planes.forEach(pl=>pl.setAttribute('visible','false'));
   });
 
