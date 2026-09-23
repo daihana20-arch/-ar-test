@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/css2?family=Vidaloka&display=swap" rel="stylesheet">
 <title>LMPI — Akumulacija tišine</title>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
@@ -48,36 +49,39 @@ body>video:not(#ar-vessel){
 }
 
 /* ── START ── */
-#start-overlay{
-  position:fixed;inset:0;z-index:200;background:#000;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
-  transition:opacity 0.8s ease;
-}
-#start-overlay.out{opacity:0;pointer-events:none}
-.s-label{font-size:10px;letter-spacing:0.4em;color:#333;text-transform:uppercase}
-.s-title{font-size:clamp(28px,8vw,48px);font-family:Georgia,serif;font-style:italic;text-align:center;line-height:1.15}
-.s-sub{font-size:10px;letter-spacing:0.25em;color:#333;margin-bottom:20px}
-#start-btn{
-  background:none;border:1px solid #2a2a2a;color:#555;
-  font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.35em;
-  text-transform:uppercase;padding:16px 40px;cursor:pointer;transition:all 0.4s;
-}
-#start-btn:hover{border-color:#666;color:#fff}
+#p0{position:fixed;inset:0;z-index:200;background:#0c0c0c;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+  transition:opacity 0.8s}
+#p0.out{opacity:0;pointer-events:none}
+@keyframes wv1{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(360deg)}}
+@keyframes wv2{0%{transform:translate(-50%,-75%) rotate(0deg)}100%{transform:translate(-50%,-75%) rotate(-360deg)}}
+.top-label{font-size:15px;letter-spacing:0.4em;color:#aaa;text-transform:uppercase}
+.lt{position:relative;display:inline-block;padding:44px 90px;overflow:hidden;border-radius:70px}
+.lt span{position:relative;z-index:2;font-family:Georgia,serif;font-style:italic;font-size:clamp(42px,10vw,82px);color:#fff;line-height:1.2;text-align:center;display:block}
+.lb{position:absolute;top:-100px;left:0;width:100%;height:300%;background:hsl(200,100%,38%);box-shadow:inset 0 0 60px rgba(0,0,0,0.4),0 0 80px rgba(0,180,255,0.5),0 0 160px rgba(0,120,255,0.3)}
+.lb::before{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:48%;background:rgba(0,4,18,1);animation:wv1 14s linear infinite}
+.lb::after{content:'';width:220%;height:220%;position:absolute;top:0;left:50%;transform:translate(-50%,-75%);border-radius:42%;background:rgba(0,10,40,0.5);animation:wv2 20s linear infinite}
+#btn-start{background:none;border:1px solid #777;color:#ccc;font-family:'Courier New',monospace;font-size:15px;letter-spacing:0.4em;text-transform:uppercase;padding:18px 52px;cursor:pointer;transition:all 0.4s;margin-top:8px}
+#btn-start:hover{border-color:#fff;color:#fff}
+.copy{font-size:12px;color:#444;position:absolute;bottom:28px;left:50%;transform:translateX(-50%);white-space:nowrap}
 
 /* ── PHASE 1: BREATH ── */
-#phase-breath{
-  position:fixed;inset:0;z-index:100;background:#000;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;
-  transition:opacity 1.5s ease;
-}
-#phase-breath.out{opacity:0;pointer-events:none;display:none!important}
-#breath-canvas{display:block;background:transparent}
-.b-label{font-size:10px;letter-spacing:0.4em;text-transform:uppercase;color:rgba(255,255,255,0.25)}
-#breath-instr{font-size:12px;letter-spacing:0.28em;color:rgba(255,255,255,0.4);text-align:center;min-height:18px;transition:opacity 0.5s}
-#breath-dots{display:flex;gap:12px}
-.bdot{width:7px;height:7px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);transition:all 0.6s}
-.bdot.done{background:#4aff6a;border-color:#4aff6a;box-shadow:0 0 8px rgba(74,255,106,0.6)}
-.bdot.active{background:rgba(74,255,106,0.35);border-color:rgba(74,255,106,0.5)}
+#p-breath{position:fixed;inset:0;z-index:100;background:#000;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  opacity:0;transition:opacity 1s}
+#p-breath.vis{opacity:1}
+.bt-title{font-family:Georgia,serif;font-style:italic;font-size:24px;
+  color:#fff;text-align:center;padding:0 28px;line-height:1.5;max-width:560px}
+.bt-label{font-family:'Vidaloka',serif;font-size:21px;letter-spacing:0.25em;
+  color:rgba(255,255,255,0.2);transition:color 0.4s}
+.bt-ring-wrap{position:relative;width:260px;height:260px}
+#glCanvas,#arcCanvas{position:absolute;top:0;left:0;width:260px;height:260px}
+#bt-num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:Georgia,serif;font-size:80px;color:#fff;
+  text-shadow:0 0 30px rgba(0,255,80,0.6);line-height:1;pointer-events:none}
+.bt-dots{display:flex;gap:10px;margin-top:8px}
+.bt-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.18)}
+.bt-dot-on{background:#00e86a;box-shadow:0 0 8px #00e86a}
 
 /* ── PHASE 2: AR ── */
 #phase-ar{
@@ -87,9 +91,7 @@ body>video:not(#ar-vessel){
 #phase-ar.visible{opacity:1;pointer-events:none}
 #video{display:none!important}
 #cv-main{position:fixed;inset:0;z-index:16;background:transparent}
-#cv-glitch{position:fixed;inset:0;z-index:18;pointer-events:none;background:transparent}
 #cv-vasc{position:fixed;inset:0;z-index:19;pointer-events:none;background:transparent}
-#phase-breath{background:transparent!important}
 
 /* HUD */
 .hud{position:fixed;z-index:20;font-size:22px;letter-spacing:0.12em;line-height:2;text-shadow:0 0 10px rgba(0,0,0,1);pointer-events:none;opacity:0;transition:opacity 1.8s}
@@ -184,24 +186,30 @@ body>video:not(#ar-vessel){
 <body>
 
 <!-- START -->
-<div id="start-overlay">
-  <p class="s-label">Mestni gozd Celje</p>
-  <p class="s-title">Akumulacija<br>tišine</p>
-  <p class="s-sub">Living Museum of Plant Intelligence</p>
-  <button id="start-btn">▶ &nbsp; ZAČNI</button>
+<div id="p0">
+  <p class="top-label">Mestni gozd Celje</p>
+  <div class="lt">
+    <div class="lb"></div>
+    <span>Akumulacija<br>tišine</span>
+  </div>
+  <button id="btn-start">▶ &nbsp; ZAČNI</button>
+  <p class="copy">© Keiko Miyazaki &amp; Darija Cvikl 2026</p>
 </div>
 
 <!-- PHASE 1 -->
-<div id="phase-breath">
-  <p class="b-label">Mestni gozd Celje</p>
-  <canvas id="breath-canvas" width="280" height="280"></canvas>
-  <p id="breath-instr">vdihni počasi</p>
-  <div id="breath-dots">
-    <div class="bdot" id="d0"></div>
-    <div class="bdot" id="d1"></div>
-    <div class="bdot" id="d2"></div>
-    <div class="bdot" id="d3"></div>
-    <div class="bdot" id="d4"></div>
+<div id="p-breath">
+  <p class="bt-title">Tvoje dihanje se poveže z drevesom.</p>
+  <div id="bt-vdihi" class="bt-label">VDIHI</div>
+  <div class="bt-ring-wrap">
+    <canvas id="glCanvas" width="260" height="260"></canvas>
+    <canvas id="arcCanvas" width="260" height="260"></canvas>
+    <div id="bt-num"></div>
+  </div>
+  <div id="bt-izdihi" class="bt-label">IZDIHI</div>
+  <div class="bt-dots">
+    <span class="bt-dot"></span>
+    <span class="bt-dot"></span>
+    <span class="bt-dot"></span>
   </div>
 </div>
 
@@ -263,8 +271,6 @@ body>video:not(#ar-vessel){
 // CONFIG
 // ═══════════════════════════════════════════════
 const LAT=46.227222,LON=15.259167;
-const TOTAL_BREATHS=5;
-const BREATH_SEC=5;
 
 
 // ═══════════════════════════════════════════════
@@ -275,12 +281,7 @@ let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,evapotr
 let phase=0;
 
 // breath
-let audioCtx,analyser,micBuf;
-let breathCount=0,breathPhase='in',breathTick=BREATH_SEC;
-let breathActive=false;
-let orbR=75,orbTarget=75,orbSmooth=0;
-let breathNoise=Array.from({length:64},()=>Math.random()*Math.PI*2);
-let breathAngle=0;
+let micAnalyser=null,micDataArr=null;
 
 // ar
 let sunP=[],waterP=[],heatP=[],windP=[],floats=[];
@@ -294,8 +295,6 @@ let arMarkerEl=null; // global ref for polling
 // ═══════════════════════════════════════════════
 // CANVAS
 // ═══════════════════════════════════════════════
-const bcv=document.getElementById('breath-canvas');
-const bctx=bcv.getContext('2d');
 const mcv=document.getElementById('cv-main');
 const mctx=mcv.getContext('2d');
 const vcv=document.getElementById('cv-vasc');
@@ -311,8 +310,8 @@ resizeAll();
 // ═══════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════
-document.getElementById('start-btn').addEventListener('click',async()=>{
-  const ov=document.getElementById('start-overlay');
+document.getElementById('btn-start').addEventListener('click',async()=>{
+  const ov=document.getElementById('p0');
   ov.classList.add('out');
   setTimeout(()=>ov.style.display='none',900);
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
@@ -325,55 +324,223 @@ document.getElementById('start-btn').addEventListener('click',async()=>{
     console.log('[tilt] no requestPermission, setting up directly');
     setupTiltDetection();
   }
-  await startBreath();
+  runBreathing(()=>startSilence());
 });
 
 // ═══════════════════════════════════════════════
 // PHASE 1 — BREATH
 // ═══════════════════════════════════════════════
-async function startBreath(){
-  phase=1;
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    if(audioCtx.state==='suspended')await audioCtx.resume();
-    analyser=audioCtx.createAnalyser();
-    analyser.fftSize=1024;
-    analyser.smoothingTimeConstant=0.8;
-    const src=audioCtx.createMediaStreamSource(stream);
-    src.connect(analyser);
-    micBuf=new Uint8Array(analyser.frequencyBinCount);
-  }catch(e){analyser=null;}
+function getMicVolume(){
+  if(!micAnalyser)return 0;
+  micAnalyser.getByteFrequencyData(micDataArr);
+  let s=0;for(let i=0;i<micDataArr.length;i++)s+=micDataArr[i];
+  return Math.min(1,s/micDataArr.length/128);
+}
 
-  breathActive=true;
-  breathPhase='in';
-  breathTick=BREATH_SEC;
-  updateDots();
-  requestAnimationFrame(breathLoop);
+function runBreathing(onDone){
+  const wrap=document.getElementById('p-breath');
+  const glCv=document.getElementById('glCanvas');
+  const arcCv=document.getElementById('arcCanvas');
+  const numEl=document.getElementById('bt-num');
+  const lblIn=document.getElementById('bt-vdihi');
+  const lblEx=document.getElementById('bt-izdihi');
+  const arcCtx=arcCv.getContext('2d');
+  const ringWrap=document.querySelector('.bt-ring-wrap');
+  const S=260;
 
-  // countdown ticker
-  const iv=setInterval(()=>{
-    if(phase!==1||!breathActive){clearInterval(iv);return;}
-    breathTick--;
-    if(breathTick<=0){
-      if(breathPhase==='in'){
-        breathPhase='out';
-        breathTick=BREATH_SEC;
-        document.getElementById('breath-instr').textContent='izdihni počasi';
-      } else {
-        breathPhase='in';
-        breathTick=BREATH_SEC;
-        breathCount++;
-        updateDots();
-        document.getElementById('breath-instr').textContent='vdihni počasi';
-        if(breathCount>=TOTAL_BREATHS){
-          breathActive=false;
-          clearInterval(iv);
-          setTimeout(startSilence,600);
-        }
+  const gl=glCv.getContext('webgl');
+  const VS=`attribute vec2 a_pos;void main(){gl_Position=vec4(a_pos,0,1);}`;
+  const FS=`precision mediump float;
+uniform vec2 iResolution;uniform float iTime;uniform float iBreath;
+float rand(float n){return fract(sin(n)*43758.5453123);}
+float noise1D(float p){float fl=floor(p);float fc=fract(p);return(mix(rand(fl),rand(fl+1.0),fc)-.5)*2.;}
+float perlin3(vec3 P){
+  vec3 Pi=floor(P);vec3 Pf=P-Pi;vec3 Pf1=Pf-1.0;
+  Pi.xyz=Pi.xyz-floor(Pi.xyz*(1.0/69.0))*69.0;
+  vec3 Pi1=step(Pi,vec3(67.5))*(Pi+1.0);
+  vec4 Pt=vec4(Pi.xy,Pi1.xy)+vec2(50.0,161.0).xyxy;
+  Pt*=Pt;Pt=Pt.xzxz*Pt.yyww;
+  const vec3 SLF=vec3(635.298681,682.357502,668.926525);
+  const vec3 ZI=vec3(48.500388,65.294118,63.934599);
+  vec3 lz=vec3(1.0/(SLF+Pi.zzz*ZI));vec3 hz=vec3(1.0/(SLF+Pi1.zzz*ZI));
+  vec4 hx0=fract(Pt*lz.xxxx);vec4 hx1=fract(Pt*hz.xxxx);
+  vec4 hy0=fract(Pt*lz.yyyy);vec4 hy1=fract(Pt*hz.yyyy);
+  vec4 hz0=fract(Pt*lz.zzzz);vec4 hz1=fract(Pt*hz.zzzz);
+  vec4 gx0=hx0-.49999;vec4 gy0=hy0-.49999;vec4 gz0=hz0-.49999;
+  vec4 gx1=hx1-.49999;vec4 gy1=hy1-.49999;vec4 gz1=hz1-.49999;
+  vec4 gr0=inversesqrt(gx0*gx0+gy0*gy0+gz0*gz0)*(vec2(Pf.x,Pf1.x).xyxy*gx0+vec2(Pf.y,Pf1.y).xxyy*gy0+Pf.zzzz*gz0);
+  vec4 gr1=inversesqrt(gx1*gx1+gy1*gy1+gz1*gz1)*(vec2(Pf.x,Pf1.x).xyxy*gx1+vec2(Pf.y,Pf1.y).xxyy*gy1+Pf1.zzzz*gz1);
+  vec3 bl=Pf*Pf*Pf*(Pf*(Pf*6.0-15.0)+10.0);
+  vec4 r0=mix(gr0,gr1,bl.z);
+  vec4 bl2=vec4(bl.xy,vec2(1.0-bl.xy));
+  return dot(r0,bl2.zxzx*bl2.wwyy)*1.1547005383792515;}
+float p2(vec2 pos,float t){return(perlin3(vec3(pos,t))+1.)*.5;}
+float nf(vec2 pos,float dist,float rot,float t){t*=1.+dist/100.;pos+=vec2(t*rot,0.)*.5;return p2(pos*dist+vec2(dist),t*2.);}
+vec3 fbm(vec2 pos,float t){
+  vec3 n=vec3(.05);pos+=p2(pos*.5,t)*.1;
+  n+=nf(pos,1.,.01,t)*vec3(.25,1.,.5);
+  n+=nf(pos,5.,.025,t)*.85*vec3(.75,1.,1.);
+  n+=nf(pos,10.,.05,t)*.5*vec3(.25,1.,1.);
+  n+=nf(pos,20.,.1,t)*.25*vec3(1.,0.,.2);
+  n+=nf(pos,75.,.15,t)*.1*vec3(1.,1.,1.);
+  return n;}
+float circle(vec2 pos,float r){return smoothstep(30./iResolution.y,-30./iResolution.y,length(pos)-r);}
+float highlight(float c,vec2 pos,float r){float h=smoothstep(0.,r,length(pos));h-=1.-c;return h*(.4+(sin(iTime)+1.)*.1);}
+vec3 hueShift(vec3 col,float adj){
+  const vec3 kRY=vec3(.299,.587,.114);const vec3 kRI=vec3(.596,-.275,-.321);const vec3 kRQ=vec3(.212,-.523,.311);
+  const vec3 kYR=vec3(1.,.956,.621);const vec3 kYG=vec3(1.,-.272,-.647);const vec3 kYB=vec3(1.,-1.107,1.704);
+  float Y=dot(col,kRY);float I=dot(col,kRI);float Q=dot(col,kRQ);
+  float hue=atan(Q,I);float chr=sqrt(I*I+Q*Q);hue+=adj;Q=chr*sin(hue);I=chr*cos(hue);
+  vec3 yiq=vec3(Y,I,Q);return vec3(dot(yiq,kYR),dot(yiq,kYG),dot(yiq,kYB));}
+void main(){
+  vec2 pos=(-iResolution.xy+2.0*gl_FragCoord.xy)/iResolution.y;
+  pos.x+=noise1D(iTime)*.05;pos.y+=noise1D(iTime+10.)*.05;
+  pos+=p2(pos*2.,iTime)*.1;pos*=1.1;
+  float radius=.9+sin(iTime*4.)*.1+iBreath*.12;
+  pos*=.5+pow(length(pos),10.);
+  vec3 n=fbm(pos,iTime);vec3 ci=vec3(circle(pos,radius));vec3 hl=vec3(highlight(ci.r,pos,radius));
+  vec3 res=clamp(ci-n,vec3(0.),vec3(1.));res.rgb=res.bgr;res*=2.;
+  res+=hl*vec3(1.,.2,.5);res=hueShift(res,5.+sin(iTime)+iBreath*2.);res*=1.4;
+  gl_FragColor=vec4(res,1.);}`;
+
+  function mkShader(type,src){
+    const s=gl.createShader(type);
+    gl.shaderSource(s,src);gl.compileShader(s);return s;
+  }
+  const prog=gl.createProgram();
+  gl.attachShader(prog,mkShader(gl.VERTEX_SHADER,VS));
+  gl.attachShader(prog,mkShader(gl.FRAGMENT_SHADER,FS));
+  gl.linkProgram(prog);gl.useProgram(prog);
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  const aPos=gl.getAttribLocation(prog,'a_pos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
+  const uRes=gl.getUniformLocation(prog,'iResolution');
+  const uTime=gl.getUniformLocation(prog,'iTime');
+  const uBreath=gl.getUniformLocation(prog,'iBreath');
+  gl.uniform2f(uRes,S,S);
+
+  const INHALE=4000,PAUSE=1500,EXHALE=4000,CYCLE=10000,TOTAL=30000;
+  wrap.style.display='flex';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>wrap.classList.add('vis')));
+
+  ringWrap.style.transform='scale(0.55)';
+  numEl.style.fontSize='36px';
+  numEl.style.fontFamily='"Courier New",monospace';
+  numEl.style.letterSpacing='0.2em';
+  numEl.style.cursor='pointer';
+  numEl.style.color='rgba(255,255,255,0.85)';
+  numEl.style.textShadow='0 0 20px rgba(0,255,80,0.5)';
+  numEl.style.pointerEvents='auto';
+  numEl.textContent='start';
+
+  const t0=performance.now();
+  let cycleT0=null;
+  let active=true,smoothBreath=0,lastCycleCount=0;
+  const bparts=[];
+
+  numEl.addEventListener('click',async function startClick(){
+    if(cycleT0!==null)return;
+    numEl.style.fontSize='';numEl.style.fontFamily='';numEl.style.letterSpacing='';
+    numEl.style.cursor='';numEl.style.color='';numEl.style.textShadow='';
+    numEl.style.pointerEvents='';numEl.textContent='';
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+      const ac=new(window.AudioContext||window.webkitAudioContext)();
+      const src=ac.createMediaStreamSource(stream);
+      const an=ac.createAnalyser();an.fftSize=256;
+      src.connect(an);
+      micAnalyser=an;micDataArr=new Uint8Array(an.frequencyBinCount);
+    }catch(e){}
+    cycleT0=performance.now();
+  });
+
+  function drawBParts(gt){
+    arcCtx.clearRect(0,0,S,S);
+    const cx=S/2,cy=S/2;
+    if(smoothBreath>0.05){
+      for(let i=0;i<Math.ceil(smoothBreath*4);i++){
+        const ang=Math.random()*Math.PI*2,r2=90+Math.random()*30;
+        bparts.push({x:cx+Math.cos(ang)*r2,y:cy+Math.sin(ang)*r2,
+          vx:Math.cos(ang)*(smoothBreath*18+Math.random()*4),
+          vy:Math.sin(ang)*(smoothBreath*18+Math.random()*4),
+          life:1,hue:120+smoothBreath*60});
       }
     }
-  },1000);
+    while(bparts.length>150)bparts.shift();
+    for(let i=bparts.length-1;i>=0;i--){
+      const p=bparts[i];
+      const dx=p.x-cx,dy=p.y-cy;
+      const dist=Math.sqrt(dx*dx+dy*dy)||1;
+      const pull=(dist-100)*0.015;
+      p.vx-=(dx/dist)*pull;p.vy-=(dy/dist)*pull;
+      p.vx*=0.94;p.vy*=0.94;
+      p.x+=p.vx;p.y+=p.vy;
+      p.life-=0.018;
+      if(p.life<=0){bparts.splice(i,1);continue;}
+      arcCtx.beginPath();
+      arcCtx.arc(p.x,p.y,Math.max(0.001,p.life*2.5),0,Math.PI*2);
+      arcCtx.fillStyle=`hsla(${p.hue+gt*30},90%,65%,${p.life*0.75})`;
+      arcCtx.fill();
+    }
+  }
+
+  function btTick(now){
+    if(!active)return;
+    const gt=(now-t0)/1000;
+    const mv=getMicVolume();
+    smoothBreath+=(mv-smoothBreath)*0.15;
+    gl.uniform1f(uTime,gt);
+    gl.uniform1f(uBreath,smoothBreath);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    if(cycleT0!==null){
+      const e=now-cycleT0;
+      const completedCycles=Math.floor(e/CYCLE);
+      if(completedCycles!==lastCycleCount){
+        lastCycleCount=completedCycles;
+        const dots=wrap.querySelectorAll('.bt-dot');
+        dots.forEach((d,i)=>{
+          if(i<completedCycles)d.classList.add('bt-dot-on');
+          else d.classList.remove('bt-dot-on');
+        });
+      }
+      if(e>=TOTAL){
+        active=false;
+        arcCtx.clearRect(0,0,S,S);
+        numEl.textContent='';
+        lblIn.style.color='';lblEx.style.color='';
+        wrap.classList.remove('vis');
+        setTimeout(()=>{wrap.style.display='none';onDone();},1000);
+        return;
+      }
+      const ct=e%CYCLE;
+      let scale;
+      if(ct<INHALE){
+        scale=0.55+(ct/INHALE)*0.80;
+        numEl.textContent=Math.ceil((INHALE-ct)/1000)||1;
+        lblIn.style.color='#00e040';lblEx.style.color='#1a4a1a';
+      }else if(ct<INHALE+PAUSE){
+        scale=1.35;
+        numEl.textContent='';
+        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
+      }else if(ct<INHALE+PAUSE+EXHALE){
+        const x=ct-INHALE-PAUSE;
+        scale=1.35-(x/EXHALE)*0.80;
+        numEl.textContent=Math.ceil((EXHALE-x)/1000)||1;
+        lblIn.style.color='#1a4a1a';lblEx.style.color='#00e040';
+      }else{
+        scale=0.55;
+        numEl.textContent='';
+        lblIn.style.color='rgba(255,255,255,0.1)';lblEx.style.color='rgba(255,255,255,0.1)';
+      }
+      ringWrap.style.transform=`scale(${scale.toFixed(3)})`;
+    }
+    drawBParts(gt);
+    requestAnimationFrame(btTick);
+  }
+  requestAnimationFrame(btTick);
 }
 
 // ═══════════════════════════════════════════════
@@ -393,89 +560,12 @@ function startSilence(){
   },10000);
 }
 
-function getMicVol(){
-  if(!analyser)return 0.1+Math.sin(Date.now()/800)*0.08;
-  analyser.getByteFrequencyData(micBuf);
-  // use full spectrum with higher sensitivity
-  let sum=0;
-  for(let i=1;i<micBuf.length;i++) sum+=micBuf[i];
-  const avg=sum/(micBuf.length*255);
-  return Math.min(1, avg*4.5); // boost sensitivity
-}
-
-function updateDots(){
-  for(let i=0;i<5;i++){
-    const d=document.getElementById('d'+i);
-    d.className='bdot'+(i<breathCount?' done':i===breathCount?' active':'');
-  }
-}
-
-function breathLoop(){
-  if(phase!==1){return;}
-  requestAnimationFrame(breathLoop);
-
-  const vol=getMicVol();
-  orbSmooth=orbSmooth*0.88+vol*0.12;
-
-  const boost=breathPhase==='in'?1.0:-0.35;
-  orbTarget=62+(orbSmooth*115)+(boost*20);
-  orbR+=(orbTarget-orbR)*0.055;
-
-  const cx=140,cy=140;
-  bctx.clearRect(0,0,280,280);
-  breathAngle+=0.013;
-  for(let i=0;i<breathNoise.length;i++) breathNoise[i]+=0.0035;
-
-  const pts=64;
-  const noiseAmt=4+orbSmooth*22;
-
-  // glow rings — green
-  for(let ring=3;ring>0;ring--){
-    const gr=bctx.createRadialGradient(cx,cy,0,cx,cy,orbR+ring*16);
-    gr.addColorStop(0,'rgba(0,0,0,0)');
-    gr.addColorStop(0.5,'rgba(0,0,0,0)');
-    gr.addColorStop(1,`rgba(74,255,106,${0.02*ring*(orbSmooth*3+0.5)})`);
-    bctx.beginPath();
-    for(let i=0;i<=pts;i++){
-      const a=(i/pts)*Math.PI*2;
-      const ni=Math.floor((i/pts)*breathNoise.length)%breathNoise.length;
-      const n=Math.sin(breathNoise[ni]+breathAngle*2.2)*noiseAmt*ring*0.35;
-      const r=orbR+ring*16+n;
-      const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
-      i===0?bctx.moveTo(x,y):bctx.lineTo(x,y);
-    }
-    bctx.closePath();bctx.fillStyle=gr;bctx.fill();
-  }
-
-  // main blob — green
-  bctx.beginPath();
-  for(let i=0;i<=pts;i++){
-    const a=(i/pts)*Math.PI*2;
-    const ni=Math.floor((i/pts)*breathNoise.length)%breathNoise.length;
-    const n=Math.sin(breathNoise[ni]+breathAngle*1.6)*noiseAmt
-           +Math.cos(breathNoise[(ni+16)%breathNoise.length]+breathAngle*0.85)*noiseAmt*0.38;
-    const r=orbR+n;
-    const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
-    i===0?bctx.moveTo(x,y):bctx.lineTo(x,y);
-  }
-  bctx.closePath();
-  const gMain=bctx.createRadialGradient(cx-8,cy-8,2,cx,cy,orbR+noiseAmt);
-  gMain.addColorStop(0,`rgba(160,255,170,${0.6+orbSmooth*0.3})`);
-  gMain.addColorStop(0.5,`rgba(74,200,90,${0.3+orbSmooth*0.2})`);
-  gMain.addColorStop(1,'rgba(20,80,30,0.05)');
-  bctx.fillStyle=gMain;bctx.fill();
-  bctx.strokeStyle=`rgba(100,255,120,${0.4+orbSmooth*0.45})`;
-  bctx.lineWidth=1;bctx.stroke();
-}
 
 // ═══════════════════════════════════════════════
 // TRANSITION → AR
 // ═══════════════════════════════════════════════
 async function goToAR(){
   phase=2;
-  document.getElementById('phase-breath').classList.add('out');
-  document.getElementById('phase-breath').style.display='none';
-
   document.getElementById('video').style.display='none';
 
   // show waiting screen while permission dialogs resolve
@@ -1074,7 +1164,6 @@ function startCountdown(){
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-updateDots();
 </script>
 </body>
 </html>
