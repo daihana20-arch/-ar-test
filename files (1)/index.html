@@ -778,6 +778,7 @@ let vnetTiltFired=false;
 let baselineBeta=null;
 let _lastBeta=null;
 let markerWasSeen=false;
+let markerLostTimer=null;
 const TILT_THRESHOLD=150;
 
 class VNet{
@@ -1031,6 +1032,7 @@ function initARjs(){
   });
 
   marker.addEventListener('markerFound',()=>{
+    if(markerLostTimer){clearTimeout(markerLostTimer);markerLostTimer=null;}
     console.log('[VNet] markerFound fired');
     markerVisible=true;
     markerWasSeen=true;
@@ -1040,10 +1042,13 @@ function initARjs(){
     planes.forEach(pl=>pl.setAttribute('visible','true'));
   });
   marker.addEventListener('markerLost',()=>{
-    markerVisible=false;
-    stopVNetGrowth();
-    if(!vnetBoostActive) clearVNets();
-    planes.forEach(pl=>pl.setAttribute('visible','false'));
+    markerLostTimer=setTimeout(()=>{
+      markerLostTimer=null;
+      markerVisible=false;
+      stopVNetGrowth();
+      if(!vnetBoostActive) clearVNets();
+      planes.forEach(pl=>pl.setAttribute('visible','false'));
+    },1800);
   });
 
   sceneEl.appendChild(marker);
