@@ -1032,7 +1032,6 @@ function initARjs(){
   });
 
   marker.addEventListener('markerFound',()=>{
-    if(markerLostTimer){clearTimeout(markerLostTimer);markerLostTimer=null;}
     console.log('[VNet] markerFound fired');
     markerVisible=true;
     markerWasSeen=true;
@@ -1042,13 +1041,8 @@ function initARjs(){
     planes.forEach(pl=>pl.setAttribute('visible','true'));
   });
   marker.addEventListener('markerLost',()=>{
-    markerLostTimer=setTimeout(()=>{
-      markerLostTimer=null;
-      markerVisible=false;
-      stopVNetGrowth();
-      if(!vnetBoostActive) clearVNets();
-      planes.forEach(pl=>pl.setAttribute('visible','false'));
-    },1800);
+    markerVisible=false;
+    planes.forEach(pl=>pl.setAttribute('visible','false'));
   });
 
   sceneEl.appendChild(marker);
