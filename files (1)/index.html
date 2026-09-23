@@ -816,7 +816,7 @@ class VNet{
   }
   update(){
     this.age++;
-    this.offsetY+=0.8;
+    this.offsetY+=1.5;
     for(let i=this.pulses.length-1;i>=0;i--){
       this.pulses[i].t+=this.pulses[i].spd;
       if(this.pulses[i].t>1)this.pulses.splice(i,1);
@@ -882,12 +882,11 @@ function weatherVNetColors(){
 }
 
 function spawnVNets(){
-  const mx=markerScreen.x||W/2;
   const cols=weatherVNetColors();
   for(let i=0;i<cols.length;i++){
     setTimeout(()=>{
       const sz=80+Math.random()*60;
-      const cx=Math.max(sz/2,Math.min(W-sz/2,mx+(Math.random()-0.5)*W*0.6));
+      const cx=W*0.05+Math.random()*W*0.90;
       const cy=Math.random()*H*0.25;
       const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
       vNets.push(new VNet(block,cols[i]));
@@ -899,27 +898,26 @@ function clearVNets(){
   vNets=[];
 }
 
-const MAX_TOTAL=70;
+const MAX_TOTAL=90;
 let vnetGrowTimer=null;
 
 function startVNetGrowth(){
   if(vnetGrowTimer)return;
   vnetGrowTimer=setInterval(()=>{
     if(vNets.length>=MAX_TOTAL)return;
-    const mx=markerScreen.x||W/2;
     const cols=weatherVNetColors();
-    const count=Math.min(cols.length,MAX_TOTAL-vNets.length);
+    const count=Math.min(Math.max(8,cols.length),MAX_TOTAL-vNets.length);
     for(let i=0;i<count;i++){
       setTimeout(()=>{
         if(vNets.length>=MAX_TOTAL)return;
         const sz=80+Math.random()*60;
-        const cx=Math.max(sz/2,Math.min(W-sz/2,mx+(Math.random()-0.5)*W*0.6));
+        const cx=W*0.05+Math.random()*W*0.90;
         const cy=Math.random()*H*0.25;
         const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
         vNets.push(new VNet(block,cols[i%cols.length]));
       },i*150);
     }
-  },5000);
+  },1800);
 }
 
 function stopVNetGrowth(){
@@ -929,13 +927,12 @@ function stopVNetGrowth(){
 function activateVNetBoost(){
   if(vnetBoostActive)return;
   vnetBoostActive=true;
-  const mx=markerScreen.x||W/2;
   const cols=weatherVNetColors();
   const extra=20+Math.floor(Math.random()*11);
   for(let i=0;i<extra;i++){
     setTimeout(()=>{
       const sz=80+Math.random()*60;
-      const cx=Math.max(sz/2,Math.min(W-sz/2,mx+(Math.random()-0.5)*W*0.6));
+      const cx=W*0.05+Math.random()*W*0.90;
       const cy=Math.random()*H*0.25;
       const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
       vNets.push(new VNet(block,cols[i%cols.length]));
