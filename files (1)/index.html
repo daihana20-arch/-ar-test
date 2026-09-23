@@ -778,7 +778,6 @@ let vnetTiltFired=false;
 let baselineBeta=null;
 let _lastBeta=null;
 let markerWasSeen=false;
-let markerLostTimer=null;
 const TILT_THRESHOLD=150;
 
 class VNet{
@@ -1042,6 +1041,8 @@ function initARjs(){
   });
   marker.addEventListener('markerLost',()=>{
     markerVisible=false;
+    stopVNetGrowth();
+    if(!vnetBoostActive) clearVNets();
     planes.forEach(pl=>pl.setAttribute('visible','false'));
   });
 
