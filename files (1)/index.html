@@ -881,19 +881,6 @@ function weatherVNetColors(){
   return cols;
 }
 
-function spawnVNets(){
-  const cols=weatherVNetColors();
-  for(let i=0;i<cols.length;i++){
-    setTimeout(()=>{
-      const sz=80+Math.random()*60;
-      const cx=W*0.05+Math.random()*W*0.90;
-      const cy=Math.random()*H*0.25;
-      const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
-      vNets.push(new VNet(block,cols[i]));
-    },i*150);
-  }
-}
-
 function clearVNets(){
   vNets=[];
 }
@@ -964,8 +951,8 @@ function tickVascular(){
     vNets[i].draw(1);
     if(vNets[i].dead)vNets.splice(i,1);
   }
-  if(markerVisible&&vNets.length<1) spawnVNets();
 }
+
 
 
 
@@ -1048,7 +1035,6 @@ function initARjs(){
     markerVisible=true;
     markerWasSeen=true;
     baselineBeta=_lastBeta;
-    spawnVNets();
     startVNetGrowth();
     vid.play().catch(()=>{});
     planes.forEach(pl=>pl.setAttribute('visible','true'));
