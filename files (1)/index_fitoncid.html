@@ -180,15 +180,21 @@ body>video:not(#ar-vessel){
   font-size:20px;letter-spacing:0.22em;color:rgba(255,255,255,0.3);text-align:center;
 }
 
-/* ── ENDING: after 3-min effect ── */
+/* ── ENDING / TIMELINE ── */
+#hud-tl>div{opacity:0;transition:opacity 1.5s ease}
+#hud-tl>div.on{opacity:1}
+#sci-main,#sci-sub{opacity:0;transition:opacity 2s ease}
+#sci-main.on,#sci-sub.on{opacity:1}
 #phase-end{
   position:fixed;inset:0;z-index:60;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity 4s ease;
+  display:grid;place-items:center;
+  opacity:0;pointer-events:none;transition:opacity 3s ease;
   background:rgba(0,0,0,0.55);
 }
 #phase-end.visible{opacity:1}
-#phase-end .poem-line{transition:opacity 2.2s ease,transform 2.2s ease}
+#phase-end .poem-line{grid-area:1/1;transition:opacity 1.5s ease,transform 1.5s ease}
+#tl-debug{position:fixed;right:8px;bottom:8px;z-index:400;font:11px 'Courier New',monospace;
+  color:#0f0;background:rgba(0,0,0,0.6);padding:4px 6px;pointer-events:none}
 </style>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
@@ -629,10 +635,7 @@ async function goToAR(){
   document.getElementById('phase-ar').classList.add('visible');
   requestAnimationFrame(arLoop);
 
-  setTimeout(()=>document.getElementById('hud-tl').classList.add('show'),400);
-  setTimeout(()=>document.getElementById('hud-tr').classList.add('show'),700);
-  setTimeout(()=>document.getElementById('hud-bl').classList.add('show'),1100);
-  setTimeout(showSciData,1500);
+  // HUD・テキスト・スパークルはマーカー検出後に startTimeline() で順番に出す
   setTimeout(startGlitch,6000);
 }
 
@@ -729,7 +732,7 @@ function buildParticles(){
   const wnd=Math.max(0.1,weather.wind/15);
   sunP=Array.from({length:Math.floor(38+rad*55)},()=>new Particle({r:255,g:210,b:60,xMin:0.1,xMax:0.9,vxBase:0,vxSpread:0.6,wd:0.3,vyBase:0.55*rad,vyRange:0.75*rad,sMin:1.2,sRange:2.8,lMin:120,lRange:160,op:0.6+rad*0.3}));
   waterP=Array.from({length:Math.floor(28+hum*45)},()=>new Particle({r:80,g:190,b:255,xMin:0,xMax:1,vxBase:0.2,vxSpread:0.8,wd:0.5,vyBase:0.15*hum,vyRange:0.25,sMin:1,sRange:2.2,lMin:180,lRange:200,op:0.4+hum*0.45}));
-  heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:255,g:90,b:40,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
+  heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:236,g:40,b:170,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
   windP=Array.from({length:Math.floor(14+wnd*32)},()=>new Particle({r:255,g:255,b:255,xMin:-0.1,xMax:0.6,vxBase:1.1*wnd,vxSpread:0.4,wd:1,vyBase:0.05,vyRange:0.3,sMin:0.5,sRange:1.3,lMin:100,lRange:150,op:0.3+wnd*0.45}));
 }
 
@@ -737,7 +740,7 @@ class FloatNum{
   constructor(){this.spawn();}
   spawn(){
     const pool=[
-      {t:weather.temp.toFixed(4),col:'255,90,40'},
+      {t:weather.temp.toFixed(4),col:'236,40,170'},
       {t:weather.humidity.toFixed(4),col:'80,190,255'},
       {t:weather.radiation.toFixed(4),col:'255,210,60'},
       {t:weather.wind.toFixed(4),col:'255,255,255'},
@@ -775,9 +778,10 @@ function arLoop(){
   if(nowVisible&&!markerVisible){
     // just found
     markerVisible=true;
+    startTimeline();
     startVNetGrowth();
     const vid=document.getElementById('ar-vessel');
-    if(vid)vid.play().catch(()=>{});
+    if(vid&&stg>=4)vid.play().catch(()=>{});
     if(!markerLockParticles.length)
       markerLockParticles=Array.from({length:40},()=>new LockedParticle());
   } else if(!nowVisible&&markerVisible){
@@ -788,9 +792,9 @@ function arLoop(){
 
   mctx.clearRect(0,0,W,H);
 
-  [...sunP,...waterP,...heatP,...windP].forEach(p=>{p.update();p.draw();});
-  floats.forEach(f=>{f.update();f.draw();});
-  if(markerVisible){markerLockParticles.forEach(p=>{p.update();p.draw();});}
+  [...(stg>=1?sunP:[]),...(stg>=2?waterP:[]),...(stg>=3?heatP:[]),...(stg>=4?windP:[])].forEach(p=>{p.update();p.draw();});
+  floats.forEach(f=>{f.update();if(floatStage(f)<=stg)f.draw();});
+  if(markerVisible&&stg>=4){markerLockParticles.forEach(p=>{p.update();p.draw();});}
   tickVascular();
 }
 
@@ -869,7 +873,7 @@ function emit(tip,d,c,n){for(let k=0;k<n&&fitMotes.length<500;k++){const s=0.8+M
 function clearVNets(){fitLimbs=[];fitPulses=[];fitMotes=[];fitGlints=[];fitSAcc=0;fitPAcc=0;fitGAcc=0;}
 
 function startVNetGrowth(){
-  if(effectEnded)return;
+  if(effectEnded||stg<4)return;
   if(fitLimbs.length>0)return;
   for(let i=0;i<11;i++){const L=fitMakeLimb(3+Math.random()*(FIT_FAR-2));L.age=3+Math.random()*3;fitLimbs.push(L);}
 }
@@ -879,7 +883,6 @@ function stopVNetGrowth(){clearVNets();}
 function activateVNetBoost(){
   if(vnetBoostActive||effectEnded)return;
   vnetBoostActive=true;
-  scheduleEnding();
   setTimeout(()=>{vnetBoostActive=false;vnetTiltFired=false;},60000);
 }
 
@@ -899,7 +902,7 @@ function setupTiltDetection(){
 }
 
 function tickVascular(){
-  if(effectEnded)return;
+  if(effectEnded||stg<4)return;
   const now=performance.now();
   const dt=Math.min(0.1,(_fitLast>0?(now-_fitLast):16)/1000);
   _fitLast=now;
@@ -1052,9 +1055,9 @@ function initARjs(){
     markerVisible=true;
     markerWasSeen=true;
     baselineBeta=_lastBeta;
+    startTimeline();
     startVNetGrowth();
-    vid.play().catch(()=>{});
-    if(!effectEnded)planes.forEach(pl=>pl.setAttribute('visible','true'));
+    if(stg>=4&&!effectEnded){vid.play().catch(()=>{});planes.forEach(pl=>pl.setAttribute('visible','true'));}
   });
   marker.addEventListener('markerLost',()=>{
     markerVisible=false;
@@ -1121,45 +1124,76 @@ function initARjs(){
 }
 
 // ═══════════════════════════════════════════════
-// ENDING — 3 min after boost → slow fade → text
+// TIMELINE — marker → staged reveal → hold → sci text → fade → poem
 // ═══════════════════════════════════════════════
-// テスト用: ?t=10 で効果時間を10秒に短縮
-const EFFECT_MS=(_urlP.has('t')?+_urlP.get('t'):180)*1000;
-const FADE_MS=8000;          // エフェクトのフェードアウト時間
-const LINE_GAP_MS=3500;      // テキスト1行ごとの間隔（呼吸のリズム）
-var effectEnded=false,endingScheduled=false;
+// テスト用: ?t=10 で1分の持続時間を10秒に短縮（右下に進行表示）
+var _tlP=new URLSearchParams(location.search);
+var TL_DEBUG=_tlP.has('t');
+var STAGE_GAP_MS=3000;                                // SOLAR→HUMID→TEMP→WIND の間隔
+var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000;        // 全部出た状態の持続時間
+var SCI_GAP_MS=2000;                                  // danes je… → vodni potencial…
+var SCI_HOLD_MS=10000;                                // vodni potencial… からフェードまで
+var FADE_MS=6000;                                     // エフェクトのフェードアウト
+var LINE_IN_MS=1500,LINE_HOLD_MS=2000,LINE_OUT_MS=1500; // 詩の各行
+var stg=0,effectEnded=false,timelineStarted=false,_tlT0=0,_tlLabel='čakam marker';
+var HEAT_COL='236,40,170';
 
-function scheduleEnding(){
-  if(endingScheduled)return;
-  endingScheduled=true;
-  console.log('[ending] scheduled in '+EFFECT_MS/1000+'s');
-  setTimeout(startEnding,EFFECT_MS);
+function floatStage(f){return f.col==='255,210,60'?1:f.col==='80,190,255'?2:f.col===HEAT_COL?3:4;}
+function hudLine(i){const l=document.querySelectorAll('#hud-tl>div')[i];if(l)l.classList.add('on');}
+
+function startTimeline(){
+  if(timelineStarted||effectEnded)return;
+  timelineStarted=true;_tlT0=performance.now();
+  const at=(ms,label,fn)=>setTimeout(()=>{_tlLabel=label;fn();},ms);
+  at(0,'1 solar',()=>{stg=1;['hud-tl','hud-tr','hud-bl'].forEach(id=>document.getElementById(id).classList.add('show'));hudLine(0);});
+  at(STAGE_GAP_MS,'2 humid',()=>{stg=2;hudLine(1);});
+  at(2*STAGE_GAP_MS,'3 temp',()=>{stg=3;hudLine(2);});
+  at(3*STAGE_GAP_MS,'4 wind+veje',()=>{stg=4;hudLine(3);startBranches();});
+  const tSci=3*STAGE_GAP_MS+HOLD_MS;
+  at(tSci,'5 danes je…',()=>{showSciData();document.getElementById('sci-main').classList.add('on');});
+  at(tSci+SCI_GAP_MS,'6 vodni potencial…',()=>document.getElementById('sci-sub').classList.add('on'));
+  at(tSci+SCI_GAP_MS+SCI_HOLD_MS,'7 fade',startEnding);
+}
+
+function startBranches(){
+  if(!markerVisible)return; // markerFound will start them later
+  startVNetGrowth();
+  const vid=document.getElementById('ar-vessel');
+  if(vid)vid.play().catch(()=>{});
+  document.querySelectorAll('a-video').forEach(v=>v.setAttribute('visible','true'));
 }
 
 function startEnding(){
-  // 1) slow fade-out of the effect layer (canvases, HUD, sci panel)
   const ar=document.getElementById('phase-ar');
   ar.style.transition='opacity '+FADE_MS+'ms ease';
   ar.style.opacity='0';
   document.querySelectorAll('a-video').forEach(v=>v.setAttribute('visible','false'));
-  const vid=document.getElementById('ar-vessel');
-
   setTimeout(()=>{
-    // 2) stop the effect completely
-    effectEnded=true;
+    effectEnded=true;_tlLabel='8 poem';
     vnetBoostActive=false;
-    clearVNets();
+    stopVNetGrowth();
+    if(typeof vNets!=='undefined')vNets=[];
+    const vid=document.getElementById('ar-vessel');
     if(vid)vid.pause();
-
-    // 3) text, one line per breath
-    const pe=document.getElementById('phase-end');
-    pe.classList.add('visible');
-    ['el0','el1','el2'].forEach((id,i)=>{
-      setTimeout(()=>document.getElementById(id).classList.add('show'),1500+i*LINE_GAP_MS);
+    document.getElementById('phase-end').classList.add('visible');
+    let t=800;
+    ['el0','el1','el2'].forEach(id=>{
+      const el=document.getElementById(id);
+      setTimeout(()=>el.classList.add('show'),t);t+=LINE_IN_MS+LINE_HOLD_MS;
+      setTimeout(()=>el.classList.remove('show'),t);t+=LINE_OUT_MS;
     });
+    setTimeout(()=>{_tlLabel='9 konec';},t);
   },FADE_MS);
 }
 
+if(TL_DEBUG){
+  window.addEventListener('DOMContentLoaded',()=>{
+    const d=document.createElement('div');d.id='tl-debug';document.body.appendChild(d);
+    setInterval(()=>{d.textContent=_tlLabel+(timelineStarted?'  '+((performance.now()-_tlT0)/1000).toFixed(0)+'s':'');},250);
+  });
+}
+
+// ═══════════════════════════════════════════════
 // ═══════════════════════════════════════════════
 // PHASE 4 — POEM + COUNTDOWN
 // ═══════════════════════════════════════════════
