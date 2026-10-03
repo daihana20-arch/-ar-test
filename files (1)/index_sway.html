@@ -92,7 +92,7 @@ body>video:not(#ar-vessel){
 #hud-tr{top:24px;right:20px;text-align:right;color:rgba(255,255,255,0.3)}
 #hud-bl{bottom:44px;left:20px;color:rgba(255,255,255,0.3);font-size:9px}
 .hl{color:#fff;margin-right:6px}
-.dv-sun{color:rgb(255,246,0)}.dv-water{color:rgb(49,225,247)}.dv-heat{color:rgb(216,0,166)}.dv-wind{color:#fff}
+.dv-sun{color:rgb(255,246,0)}.dv-water{color:rgb(49,225,247)}.dv-heat{color:rgb(255,80,215)}.dv-wind{color:#fff}
 #hud-tl.show,#hud-tr.show,#hud-bl.show{opacity:1}
 
 #sci-panel{
@@ -667,7 +667,7 @@ function buildParticles(){
   const wnd=Math.max(0.1,weather.wind/15);
   sunP=Array.from({length:Math.floor(38+rad*55)},()=>new Particle({r:255,g:210,b:60,xMin:0.1,xMax:0.9,vxBase:0,vxSpread:0.6,wd:0.3,vyBase:0.55*rad,vyRange:0.75*rad,sMin:1.2,sRange:2.8,lMin:120,lRange:160,op:0.6+rad*0.3}));
   waterP=Array.from({length:Math.floor(28+hum*45)},()=>new Particle({r:80,g:190,b:255,xMin:0,xMax:1,vxBase:0.2,vxSpread:0.8,wd:0.5,vyBase:0.15*hum,vyRange:0.25,sMin:1,sRange:2.2,lMin:180,lRange:200,op:0.4+hum*0.45}));
-  heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:236,g:40,b:170,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
+  heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:255,g:80,b:215,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
   windP=Array.from({length:Math.floor(14+wnd*32)},()=>new Particle({r:255,g:255,b:255,xMin:-0.1,xMax:0.6,vxBase:1.1*wnd,vxSpread:0.4,wd:1,vyBase:0.05,vyRange:0.3,sMin:0.5,sRange:1.3,lMin:100,lRange:150,op:0.3+wnd*0.45}));
 }
 
@@ -675,7 +675,7 @@ class FloatNum{
   constructor(){this.spawn();}
   spawn(){
     const pool=[
-      {t:weather.temp.toFixed(4),col:'236,40,170'},
+      {t:weather.temp.toFixed(4),col:'255,80,215'},
       {t:weather.humidity.toFixed(4),col:'80,190,255'},
       {t:weather.radiation.toFixed(4),col:'255,210,60'},
       {t:weather.wind.toFixed(4),col:'255,255,255'},
@@ -1166,7 +1166,7 @@ var KEEP_MS=10000;           // スパークルが出てから次の文字まで
 var BOX_DELAY_MS=2000;       // 四角が出てからSOLARの文字まで
 var BRANCH_DELAY_MS=3000;    // WINDの文字から枝まで
 var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000; // 全部そろった状態の持続
-var SCI_GAP_MS=2000;         // danes je… → vodni potencial…
+var SCI_GAP_MS=3000;         // danes je… → vodni potencial…
 var SCI_HOLD_MS=10000;       // vodni potencial… からフェードまで
 var FADE_MS=6000;            // エフェクトのフェードアウト
 var LINE_IN_MS=1500,LINE_HOLD_MS=2000,LINE_OUT_MS=1500; // 詩の各行
@@ -1175,7 +1175,7 @@ var BLACK_MS=4000;           // 最後の行の後、真っ黒になるまで
 
 var stg=0,effectEnded=false,timelineStarted=false,_tlT0=0,_tlLabel='čakam marker';
 var spkStart=[0,0,0,0,0]; // [-,sun,water,heat,wind] スパークル開始時刻
-var HEAT_COL='236,40,170';
+var HEAT_COL='255,80,215';
 
 function floatStage(f){return f.col==='255,210,60'?1:f.col==='80,190,255'?2:f.col===HEAT_COL?3:4;}
 function spkAlpha(i){return spkStart[i]?Math.min(1,(performance.now()-spkStart[i])/SPK_FADE_MS):0;}
@@ -1209,8 +1209,8 @@ function startTimeline(){
 }
 
 function startBranches(){
-  if(!markerVisible)return; // markerFound will start them later
-  startVNetGrowth();
+  startVNetGrowth(); // 枝は時間で必ず出す（マーカーが画面外でも）
+  if(!markerVisible)return; // マーカーに貼り付く映像だけは、見えている時のみ
   const vid=document.getElementById('ar-vessel');
   if(vid)vid.play().catch(()=>{});
   document.querySelectorAll('a-video').forEach(v=>v.setAttribute('visible','true'));
