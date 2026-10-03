@@ -182,6 +182,7 @@ body>video:not(#ar-vessel){
 
 /* ── ENDING / TIMELINE ── */
 #hud-tl>div{opacity:0;transition:opacity 2.5s ease}
+#hud-tl{transition:opacity 2.5s ease}
 #hud-tl>div.on{opacity:1}
 #sci-main,#sci-sub{opacity:0;transition:opacity 2s ease}
 #sci-main.on,#sci-sub.on{opacity:1}
@@ -352,16 +353,7 @@ document.getElementById('btn-start').addEventListener('click',async()=>{
   const ov=document.getElementById('p0');
   ov.classList.add('out');
   setTimeout(()=>ov.style.display='none',900);
-  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    try{
-      const p=await DeviceOrientationEvent.requestPermission();
-      console.log('[tilt] permission='+p);
-      if(p==='granted')setupTiltDetection();
-    }catch(e){console.log('[tilt] permission error: '+e);}
-  }else{
-    console.log('[tilt] no requestPermission, setting up directly');
-    setupTiltDetection();
-  }
+  // 傾き（ブースト）は廃止 — すべて時間で進行
   runBreathing(()=>startSilence());
 });
 
@@ -881,12 +873,14 @@ function startVNetGrowth(){
 function stopVNetGrowth(){clearVNets();}
 
 function activateVNetBoost(){
+  return; // 傾きブーストは廃止
   if(vnetBoostActive||effectEnded)return;
   vnetBoostActive=true;
   setTimeout(()=>{vnetBoostActive=false;vnetTiltFired=false;},60000);
 }
 
 function setupTiltDetection(){
+  return; // 傾きブーストは廃止
   console.log('[tilt] setupTiltDetection registered');
   window.addEventListener('deviceorientation',e=>{
     if(e.beta!==null) _lastBeta=e.beta;
@@ -1133,14 +1127,15 @@ var TL_DEBUG=_tlP.has('t');
 var SPK_DELAY_MS=3000;       // 文字が出てからスパークルが出るまで
 var SPK_FADE_MS=3000;        // スパークルのフェードイン時間
 var KEEP_MS=10000;           // スパークルが出てから次の文字まで
-var BRANCH_DELAY_MS=2000;    // WINDの文字から枝まで
+var BOX_DELAY_MS=2000;       // 四角が出てからSOLARの文字まで
+var BRANCH_DELAY_MS=3000;    // WINDの文字から枝まで
 var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000; // 全部そろった状態の持続
 var SCI_GAP_MS=2000;         // danes je… → vodni potencial…
 var SCI_HOLD_MS=10000;       // vodni potencial… からフェードまで
 var FADE_MS=6000;            // エフェクトのフェードアウト
 var LINE_IN_MS=1500,LINE_HOLD_MS=2000,LINE_OUT_MS=1500; // 詩の各行
 var BLACK_MS=4000;           // 最後の行の後、真っ黒になるまで
-// 文字のフェードイン時間は CSS の #hud-tl>div（2.5s）
+// 四角・文字のフェードイン時間は CSS の #hud-tl / #hud-tl>div（2.5s）
 
 var stg=0,effectEnded=false,timelineStarted=false,_tlT0=0,_tlLabel='čakam marker';
 var spkStart=[0,0,0,0,0]; // [-,sun,water,heat,wind] スパークル開始時刻
@@ -1163,12 +1158,12 @@ function startTimeline(){
   const at=(ms,label,fn)=>setTimeout(()=>{_tlLabel=label;fn();},ms);
   const step=SPK_DELAY_MS+KEEP_MS;
   const names=['solar','humid','temp'];
-  at(0,'1 solar',()=>['hud-tl','hud-tr','hud-bl'].forEach(id=>document.getElementById(id).classList.add('show')));
+  at(0,'0 box',()=>['hud-tl','hud-tr','hud-bl'].forEach(id=>document.getElementById(id).classList.add('show')));
   names.forEach((n,i)=>{
-    at(i*step,(i+1)+' '+n,()=>{stg=Math.max(stg,i+1);hudLine(i);});
-    at(i*step+SPK_DELAY_MS,(i+1)+' '+n+' ✦',()=>{spkStart[i+1]=performance.now();});
+    at(BOX_DELAY_MS+i*step,(i+1)+' '+n,()=>{stg=Math.max(stg,i+1);hudLine(i);});
+    at(BOX_DELAY_MS+i*step+SPK_DELAY_MS,(i+1)+' '+n+' ✦',()=>{spkStart[i+1]=performance.now();});
   });
-  const tWind=3*step;
+  const tWind=BOX_DELAY_MS+3*step;
   at(tWind,'4 wind',()=>hudLine(3));
   at(tWind+BRANCH_DELAY_MS,'4 wind+veje',()=>{stg=4;spkStart[4]=performance.now();startBranches();});
   const tSci=tWind+BRANCH_DELAY_MS+HOLD_MS;
