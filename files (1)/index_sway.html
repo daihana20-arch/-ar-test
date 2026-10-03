@@ -168,6 +168,16 @@ body>video:not(#ar-vessel){
 #silence-desc{
   font-size:20px;letter-spacing:0.22em;color:rgba(255,255,255,0.3);text-align:center;
 }
+
+/* ── ENDING: after 3-min effect ── */
+#phase-end{
+  position:fixed;inset:0;z-index:60;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 4s ease;
+  background:rgba(0,0,0,0.55);
+}
+#phase-end.visible{opacity:1}
+#phase-end .poem-line{transition:opacity 2.2s ease,transform 2.2s ease}
 </style>
 <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
@@ -231,6 +241,13 @@ body>video:not(#ar-vessel){
     <div id="sci-main"></div>
     <div id="sci-sub"></div>
   </div>
+</div>
+
+<!-- ENDING -->
+<div id="phase-end">
+  <p class="poem-line" id="el0">Pospravi telefon.</p>
+  <p class="poem-line" id="el1">Drevesa dihajo zate.</p>
+  <p class="poem-line" id="el2">Vdihni fitoncide.</p>
 </div>
 
 <div id="phase-text">
@@ -932,6 +949,7 @@ function _pickBx(){
 }
 
 function startVNetGrowth(){
+  if(effectEnded)return;
   if(vnetGrowTimer)return;
   vnetGrowTimer=setInterval(()=>{
     if(vNets.length>=MAX_TOTAL)return;
@@ -949,8 +967,9 @@ function stopVNetGrowth(){
 }
 
 function activateVNetBoost(){
-  if(vnetBoostActive)return;
+  if(vnetBoostActive||effectEnded)return;
   vnetBoostActive=true;
+  scheduleEnding();
   const cols=weatherVNetColors();
   const extra=8+Math.floor(Math.random()*5); // 8〜12束
   for(let i=0;i<extra;i++){
@@ -979,6 +998,7 @@ function setupTiltDetection(){
 
 function tickVascular(){
   vctx.clearRect(0,0,W,H);
+  if(effectEnded)return;
 
   // debug log for first 30 seconds
   if(!_dbgStart)_dbgStart=performance.now();
@@ -1075,7 +1095,7 @@ function initARjs(){
     baselineBeta=_lastBeta;
     startVNetGrowth();
     vid.play().catch(()=>{});
-    planes.forEach(pl=>pl.setAttribute('visible','true'));
+    if(!effectEnded)planes.forEach(pl=>pl.setAttribute('visible','true'));
   });
   marker.addEventListener('markerLost',()=>{
     markerVisible=false;
@@ -1132,6 +1152,45 @@ function initARjs(){
     });
   });
   obs.observe(document.body,{childList:true,subtree:false});
+}
+
+// ═══════════════════════════════════════════════
+// ENDING — 3 min after boost → slow fade → text
+// ═══════════════════════════════════════════════
+// テスト用: ?t=10 で効果時間を10秒に短縮
+var _endP=new URLSearchParams(location.search);
+var EFFECT_MS=(_endP.has('t')?+_endP.get('t'):180)*1000;
+var FADE_MS=8000;          // エフェクトのフェードアウト時間
+var LINE_GAP_MS=3500;      // テキスト1行ごとの間隔（呼吸のリズム）
+var effectEnded=false,endingScheduled=false;
+
+function scheduleEnding(){
+  if(endingScheduled)return;
+  endingScheduled=true;
+  console.log('[ending] scheduled in '+EFFECT_MS/1000+'s');
+  setTimeout(startEnding,EFFECT_MS);
+}
+
+function startEnding(){
+  const ar=document.getElementById('phase-ar');
+  ar.style.transition='opacity '+FADE_MS+'ms ease';
+  ar.style.opacity='0';
+  document.querySelectorAll('a-video').forEach(v=>v.setAttribute('visible','false'));
+  const vid=document.getElementById('ar-vessel');
+
+  setTimeout(()=>{
+    effectEnded=true;
+    vnetBoostActive=false;
+    stopVNetGrowth();
+    vNets=[];
+    if(vid)vid.pause();
+
+    const pe=document.getElementById('phase-end');
+    pe.classList.add('visible');
+    ['el0','el1','el2'].forEach((id,i)=>{
+      setTimeout(()=>document.getElementById(id).classList.add('show'),1500+i*LINE_GAP_MS);
+    });
+  },FADE_MS);
 }
 
 // ═══════════════════════════════════════════════
