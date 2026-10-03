@@ -181,7 +181,7 @@ body>video:not(#ar-vessel){
 }
 
 /* ── ENDING / TIMELINE ── */
-#hud-tl>div{opacity:0;transition:opacity 1.5s ease}
+#hud-tl>div{opacity:0;transition:opacity 2.5s ease}
 #hud-tl>div.on{opacity:1}
 #sci-main,#sci-sub{opacity:0;transition:opacity 2s ease}
 #sci-main.on,#sci-sub.on{opacity:1}
@@ -776,8 +776,8 @@ function arLoop(){
 
   mctx.clearRect(0,0,W,H);
 
-  [...(stg>=1?sunP:[]),...(stg>=2?waterP:[]),...(stg>=3?heatP:[]),...(stg>=4?windP:[])].forEach(p=>{p.update();p.draw();});
-  floats.forEach(f=>{f.update();if(floatStage(f)<=stg)f.draw();});
+  drawSparkles();
+  floats.forEach(f=>{f.update();const a=spkAlpha(floatStage(f));if(a>0){mctx.globalAlpha=a;f.draw();mctx.globalAlpha=1;}});
   if(markerVisible&&stg>=4){markerLockParticles.forEach(p=>{p.update();p.draw();});}
   tickVascular();
 }
@@ -1129,32 +1129,54 @@ function initARjs(){
 }
 
 // ═══════════════════════════════════════════════
-// TIMELINE — marker → staged reveal → hold → sci text → fade → poem
+// TIMELINE — marker → staged reveal → hold → sci text → fade → poem → black
 // ═══════════════════════════════════════════════
-// テスト用: ?t=10 で1分の持続時間を10秒に短縮（右下に進行表示）
+// ── タイミング調整はここ（ミリ秒）──
+// テスト用: ?t=10 で「全部そろった状態」の1分を10秒に短縮（右下に進行表示）
 var _tlP=new URLSearchParams(location.search);
 var TL_DEBUG=_tlP.has('t');
-var STAGE_GAP_MS=3000;                                // SOLAR→HUMID→TEMP→WIND の間隔
-var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000;        // 全部出た状態の持続時間
-var SCI_GAP_MS=2000;                                  // danes je… → vodni potencial…
-var SCI_HOLD_MS=10000;                                // vodni potencial… からフェードまで
-var FADE_MS=6000;                                     // エフェクトのフェードアウト
+var SPK_DELAY_MS=3000;       // 文字が出てからスパークルが出るまで
+var SPK_FADE_MS=3000;        // スパークルのフェードイン時間
+var KEEP_MS=10000;           // スパークルが出てから次の文字まで
+var BRANCH_DELAY_MS=2000;    // WINDの文字から枝まで
+var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000; // 全部そろった状態の持続
+var SCI_GAP_MS=2000;         // danes je… → vodni potencial…
+var SCI_HOLD_MS=10000;       // vodni potencial… からフェードまで
+var FADE_MS=6000;            // エフェクトのフェードアウト
 var LINE_IN_MS=1500,LINE_HOLD_MS=2000,LINE_OUT_MS=1500; // 詩の各行
+var BLACK_MS=4000;           // 最後の行の後、真っ黒になるまで
+// 文字のフェードイン時間は CSS の #hud-tl>div（2.5s）
+
 var stg=0,effectEnded=false,timelineStarted=false,_tlT0=0,_tlLabel='čakam marker';
+var spkStart=[0,0,0,0,0]; // [-,sun,water,heat,wind] スパークル開始時刻
 var HEAT_COL='236,40,170';
 
 function floatStage(f){return f.col==='255,210,60'?1:f.col==='80,190,255'?2:f.col===HEAT_COL?3:4;}
+function spkAlpha(i){return spkStart[i]?Math.min(1,(performance.now()-spkStart[i])/SPK_FADE_MS):0;}
+function drawSparkles(){
+  [[1,sunP],[2,waterP],[3,heatP],[4,windP]].forEach(([i,arr])=>{
+    const a=spkAlpha(i);if(a<=0)return;
+    mctx.globalAlpha=a;arr.forEach(p=>{p.update();p.draw();});
+  });
+  mctx.globalAlpha=1;
+}
 function hudLine(i){const l=document.querySelectorAll('#hud-tl>div')[i];if(l)l.classList.add('on');}
 
 function startTimeline(){
   if(timelineStarted||effectEnded)return;
   timelineStarted=true;_tlT0=performance.now();
   const at=(ms,label,fn)=>setTimeout(()=>{_tlLabel=label;fn();},ms);
-  at(0,'1 solar',()=>{stg=1;['hud-tl','hud-tr','hud-bl'].forEach(id=>document.getElementById(id).classList.add('show'));hudLine(0);});
-  at(STAGE_GAP_MS,'2 humid',()=>{stg=2;hudLine(1);});
-  at(2*STAGE_GAP_MS,'3 temp',()=>{stg=3;hudLine(2);});
-  at(3*STAGE_GAP_MS,'4 wind+veje',()=>{stg=4;hudLine(3);startBranches();});
-  const tSci=3*STAGE_GAP_MS+HOLD_MS;
+  const step=SPK_DELAY_MS+KEEP_MS;
+  const names=['solar','humid','temp'];
+  at(0,'1 solar',()=>['hud-tl','hud-tr','hud-bl'].forEach(id=>document.getElementById(id).classList.add('show')));
+  names.forEach((n,i)=>{
+    at(i*step,(i+1)+' '+n,()=>{stg=Math.max(stg,i+1);hudLine(i);});
+    at(i*step+SPK_DELAY_MS,(i+1)+' '+n+' ✦',()=>{spkStart[i+1]=performance.now();});
+  });
+  const tWind=3*step;
+  at(tWind,'4 wind',()=>hudLine(3));
+  at(tWind+BRANCH_DELAY_MS,'4 wind+veje',()=>{stg=4;spkStart[4]=performance.now();startBranches();});
+  const tSci=tWind+BRANCH_DELAY_MS+HOLD_MS;
   at(tSci,'5 danes je…',()=>{showSciData();document.getElementById('sci-main').classList.add('on');});
   at(tSci+SCI_GAP_MS,'6 vodni potencial…',()=>document.getElementById('sci-sub').classList.add('on'));
   at(tSci+SCI_GAP_MS+SCI_HOLD_MS,'7 fade',startEnding);
@@ -1180,14 +1202,15 @@ function startEnding(){
     if(typeof vNets!=='undefined')vNets=[];
     const vid=document.getElementById('ar-vessel');
     if(vid)vid.pause();
-    document.getElementById('phase-end').classList.add('visible');
+    const pe=document.getElementById('phase-end');
+    pe.classList.add('visible');
     let t=800;
     ['el0','el1','el2'].forEach(id=>{
       const el=document.getElementById(id);
       setTimeout(()=>el.classList.add('show'),t);t+=LINE_IN_MS+LINE_HOLD_MS;
       setTimeout(()=>el.classList.remove('show'),t);t+=LINE_OUT_MS;
     });
-    setTimeout(()=>{_tlLabel='9 konec';},t);
+    setTimeout(()=>{_tlLabel='9 črno';pe.style.transition='background-color '+BLACK_MS+'ms ease';pe.style.backgroundColor='#000';},t);
   },FADE_MS);
 }
 
