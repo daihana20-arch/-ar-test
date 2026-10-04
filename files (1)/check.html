@@ -3,50 +3,116 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Preveritev sistema</title>
+<title>Preverjanje telefona</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#000;color:#fff;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 24px 48px;}
-h1{font-size:12px;letter-spacing:0.35em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:40px;}
-.checks{width:100%;max-width:340px;}
-.row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;}
-.lbl{font-size:15px;letter-spacing:0.15em;color:rgba(255,255,255,0.9);text-transform:uppercase;font-weight:500;}
-.val{font-size:32px;font-weight:700;color:rgba(255,255,255,0.2);}
-.val.ok{color:#4eff91;}
-.val.ne{color:#ff4e4e;}
-.detail{font-size:12px;color:#ff6b6b;min-height:16px;margin-bottom:16px;word-break:break-all;line-height:1.5;}
-#cam-preview{width:100%;max-width:340px;height:180px;object-fit:cover;background:#111;border-radius:3px;display:none;margin-bottom:8px;}
-#cam-instr{display:none;font-size:12px;color:rgba(255,255,255,0.75);letter-spacing:0.05em;margin-bottom:12px;max-width:340px;text-align:center;line-height:1.6;}
-#ne-msg{display:none;margin-top:8px;padding:16px;border:1px solid rgba(255,78,78,0.6);border-radius:3px;font-size:13px;color:#ff6b6b;line-height:1.7;max-width:340px;text-align:center;}
-#btn{margin-top:32px;padding:15px 40px;background:transparent;border:1px solid rgba(255,255,255,0.5);color:rgba(255,255,255,0.9);font-size:13px;letter-spacing:0.3em;cursor:pointer;border-radius:2px;}
-#btn:active{background:rgba(255,255,255,0.1);}
-#note{margin-top:32px;max-width:340px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.9;text-align:center;}
-#ua{margin-top:20px;font-size:9px;color:rgba(255,255,255,0.45);word-break:break-all;max-width:340px;line-height:1.6;}
+body{background:#000;color:#fff;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;flex:1;padding:32px 24px 24px;}
+.screen.active{display:flex;}
+.spacer{flex:1;}
+
+/* screen 1 */
+#s1-title{font-size:34px;font-weight:700;margin-bottom:28px;line-height:1.2;}
+#s1-desc p{font-size:20px;line-height:1.7;margin-bottom:10px;}
+
+/* buttons */
+.btn{width:100%;padding:22px;font-size:26px;font-weight:700;letter-spacing:0.05em;border:none;cursor:pointer;border-radius:6px;margin-top:12px;}
+.btn-start{background:#fff;color:#000;}
+.btn-start:active{background:#ddd;}
+.btn-retry{background:transparent;color:#fff;border:3px solid #fff;}
+.btn-retry:active{background:rgba(255,255,255,0.1);}
+
+/* screen 2 */
+#https-err{display:none;background:#c00;color:#fff;font-size:20px;font-weight:700;padding:16px 20px;border-radius:6px;margin-bottom:24px;}
+.check-item{margin-bottom:28px;}
+.check-name{font-size:26px;font-weight:700;margin-bottom:2px;}
+.check-sub{font-size:18px;color:rgba(255,255,255,0.65);margin-bottom:10px;}
+.check-status{font-size:36px;font-weight:700;color:rgba(255,255,255,0.25);}
+.check-status.checking{color:#fff;}
+.check-status.ok{color:#00e87a;}
+.check-status.fail{color:#ff3b3b;}
+.check-err{font-size:16px;color:#ff6b6b;margin-top:6px;line-height:1.4;}
+#cam-preview{width:100%;max-height:180px;object-fit:cover;border-radius:6px;display:none;margin:10px 0 6px;background:#111;}
+#cam-instr{display:none;font-size:22px;font-weight:600;color:#fff;background:rgba(255,255,255,0.08);border-radius:6px;padding:16px 18px;margin:8px 0 6px;line-height:1.4;}
+
+/* screen 3 */
+#result-ok{display:none;font-size:34px;font-weight:700;color:#00e87a;line-height:1.3;margin-bottom:20px;}
+#result-fail{display:none;}
+#result-fail-head{font-size:34px;font-weight:700;color:#ff3b3b;margin-bottom:20px;line-height:1.3;}
+#result-fail-body p{font-size:20px;line-height:1.7;margin-bottom:10px;}
+
+/* tech */
+#tech{padding:20px 24px 28px;border-top:1px solid rgba(255,255,255,0.15);}
+#tech-title{font-size:12px;letter-spacing:0.2em;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:8px;}
+#tech-body{font-size:11px;color:rgba(255,255,255,0.5);word-break:break-all;line-height:1.7;white-space:pre-wrap;}
 </style>
 </head>
 <body>
-<h1>Preveritev sistema</h1>
-<div class="checks">
-  <div class="row"><span class="lbl">HTTPS</span><span class="val" id="r-https">—</span></div>
-  <div class="detail" id="d-https"></div>
-  <div class="row"><span class="lbl">Mikrofon</span><span class="val" id="r-mic">—</span></div>
-  <div class="detail" id="d-mic"></div>
-  <div class="row"><span class="lbl">Kamera</span><span class="val" id="r-cam">—</span></div>
-  <div class="detail" id="d-cam"></div>
+
+<!-- screen 1 -->
+<div class="screen active" id="s1">
+  <div id="s1-title">Preverjanje telefona</div>
+  <div id="s1-desc">
+    <p>Preverimo, ali tvoj telefon deluje za delavnico.</p>
+    <p>Pritisni START.</p>
+    <p>Telefon te bo vprašal za dovoljenje za mikrofon in kamero.</p>
+    <p>Pritisni &raquo;Dovoli&laquo;.</p>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn btn-start" id="btn-start">START</button>
 </div>
-<video id="cam-preview" autoplay playsinline muted></video>
-<div id="cam-instr">Usmerite kamero na roko ali predmete v bližini.</div>
-<div class="checks">
-  <div class="row"><span class="lbl">WebGL</span><span class="val" id="r-webgl">—</span></div>
-  <div class="detail" id="d-webgl"></div>
+
+<!-- screen 2 -->
+<div class="screen" id="s2">
+  <div id="https-err">Odpri pravo povezavo.</div>
+  <div class="check-item">
+    <div class="check-name">Mikrofon</div>
+    <div class="check-sub">za dihanje</div>
+    <div class="check-status" id="st-mic">—</div>
+    <div class="check-err" id="err-mic"></div>
+  </div>
+  <div class="check-item">
+    <div class="check-name">Kamera</div>
+    <div class="check-sub">za prikaz učinkov</div>
+    <div class="check-status" id="st-cam">—</div>
+    <video id="cam-preview" autoplay playsinline muted></video>
+    <div id="cam-instr">Usmeri kamero v roko ali predmet.</div>
+    <div class="check-err" id="err-cam"></div>
+  </div>
+  <div class="check-item">
+    <div class="check-name">Prikaz slike</div>
+    <div class="check-sub">za grafiko</div>
+    <div class="check-status" id="st-gl">—</div>
+    <div class="check-err" id="err-gl"></div>
+  </div>
 </div>
-<div id="ne-msg">Preveritev ni uspela.<br>Prosimo, naredite posnetek zaslona<br>in ga pošljite organizatorju.</div>
-<button id="btn">Začni preveritev</button>
-<div id="note">Zahtevano: dovoljenje za mikrofon in kamero, HTTPS.<br>Če so vsi rezultati OK, bo aplikacija najverjetneje delovala na tej napravi.</div>
-<div id="ua"></div>
+
+<!-- screen 3 -->
+<div class="screen" id="s3">
+  <div id="result-ok">Tvoj telefon je pripravljen za delavnico!</div>
+  <div id="result-fail">
+    <div id="result-fail-head">Nekaj ne deluje.</div>
+    <div id="result-fail-body">
+      <p>Naredi posnetek zaslona in ga pošlji organizatorju.</p>
+      <p>Ne skrbi &ndash; na delavnici lahko sodeluješ v paru.</p>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn btn-retry" id="btn-retry">Poskusi znova</button>
+</div>
+
+<!-- technical info (always visible) -->
+<div id="tech">
+  <div id="tech-title">Tehnični podatki</div>
+  <div id="tech-body"></div>
+</div>
+
 <script>
-document.getElementById('ua').textContent=navigator.userAgent;
+var techLines=['UA: '+navigator.userAgent];
 var _micStream=null,_camStream=null;
+
+function updateTech(){document.getElementById('tech-body').textContent=techLines.join('\n');}
+updateTech();
 
 function stopAll(){
   if(_micStream){_micStream.getTracks().forEach(function(t){t.stop();});_micStream=null;}
@@ -55,45 +121,64 @@ function stopAll(){
   document.getElementById('cam-instr').style.display='none';
 }
 
-function setResult(id,ok,detail){
-  var el=document.getElementById(id);
-  el.textContent=ok?'OK':'NE';el.className='val '+(ok?'ok':'ne');
-  var de=document.getElementById(id.replace('r-','d-'));
-  if(de)de.textContent=(!ok&&detail)?detail:'';
+function showScreen(id){
+  ['s1','s2','s3'].forEach(function(s){document.getElementById(s).classList.remove('active');});
+  document.getElementById(id).classList.add('active');
 }
 
-document.getElementById('btn').addEventListener('click',async function(){
-  var btn=this;btn.disabled=true;btn.style.opacity='0.3';
-  document.getElementById('ne-msg').style.display='none';
+function setStatus(id,state,text,errText){
+  var el=document.getElementById('st-'+id);
+  el.className='check-status '+state;
+  el.textContent=text;
+  if(errText!==undefined){
+    var ee=document.getElementById('err-'+id);
+    if(ee)ee.textContent=errText||'';
+    if(errText){techLines.push(id.toUpperCase()+': '+errText);updateTech();}
+  }
+}
+
+async function runChecks(){
   stopAll();
-  ['r-https','r-mic','r-cam','r-webgl'].forEach(function(id){
-    var el=document.getElementById(id);el.textContent='…';el.className='val';
-    var de=document.getElementById(id.replace('r-','d-'));if(de)de.textContent='';
+  ['mic','cam','gl'].forEach(function(id){
+    document.getElementById('st-'+id).className='check-status';
+    document.getElementById('st-'+id).textContent='—';
+    var ee=document.getElementById('err-'+id);if(ee)ee.textContent='';
   });
+  document.getElementById('https-err').style.display='none';
+  document.getElementById('result-ok').style.display='none';
+  document.getElementById('result-fail').style.display='none';
+  techLines=['UA: '+navigator.userAgent];
+  updateTech();
+
+  showScreen('s2');
   var fail=false;
 
-  // HTTPS
+  // HTTPS（表示なし、NGなら警告のみ）
   var sec=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
-  setResult('r-https',sec,sec?'':location.protocol);
-  if(!sec)fail=true;
+  if(!sec){
+    document.getElementById('https-err').style.display='block';
+    techLines.push('HTTPS: '+location.protocol);updateTech();
+    fail=true;
+  }
 
   // Mikrofon
+  setStatus('mic','checking','PREVERJAM ...');
   try{
     _micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
-    setResult('r-mic',true);
-  }catch(e){setResult('r-mic',false,e.name);fail=true;}
+    setStatus('mic','ok','DELUJE');
+  }catch(e){setStatus('mic','fail','NE DELUJE',e.name);fail=true;}
 
-  // マイクを止めてからカメラを要求（本番と同じ順序）
+  // マイクを止めてからカメラを要求
   if(_micStream){_micStream.getTracks().forEach(function(t){t.stop();});_micStream=null;}
 
   // Kamera
+  setStatus('cam','checking','PREVERJAM ...');
   try{
     _camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
     var prev=document.getElementById('cam-preview');
     prev.srcObject=_camStream;prev.style.display='block';
     await prev.play();
 
-    // 映像フレームを待つ（最大6秒）
     await new Promise(function(resolve,reject){
       var t0=Date.now();
       var iv=setInterval(function(){
@@ -102,7 +187,7 @@ document.getElementById('btn').addEventListener('click',async function(){
       },200);
     });
 
-    // ピクセル均一チェック：4コマ × 700ms（約2.1秒）、全コマ均一ならNE
+    // ピクセル均一チェック：4コマ × 700ms
     document.getElementById('cam-instr').style.display='block';
     var blanks=0;var lastRange=0;
     for(var s=0;s<4;s++){
@@ -122,13 +207,12 @@ document.getElementById('btn').addEventListener('click',async function(){
     }
     document.getElementById('cam-instr').style.display='none';
     if(blanks===4)throw new Error('prazna slika (range='+lastRange+'/255)');
-    setResult('r-cam',true);
-  }catch(e){setResult('r-cam',false,e.name+' '+e.message);fail=true;}
-
-  // テスト完了 — カメラストリームを停止
+    setStatus('cam','ok','DELUJE');
+  }catch(e){setStatus('cam','fail','NE DELUJE',e.name+' '+e.message);fail=true;}
   stopAll();
 
-  // WebGL（一時canvas — このページに2Dキャンバスはないため安全）
+  // Prikaz slike (WebGL)
+  setStatus('gl','checking','PREVERJAM ...');
   try{
     var tc=document.createElement('canvas');tc.width=1;tc.height=1;
     var gl=tc.getContext('webgl2')||tc.getContext('webgl');
@@ -136,15 +220,18 @@ document.getElementById('btn').addEventListener('click',async function(){
       var v2=(typeof WebGL2RenderingContext!=='undefined'&&gl instanceof WebGL2RenderingContext)?2:1;
       var dr=gl.getExtension('WEBGL_debug_renderer_info');
       var gpu=dr?gl.getParameter(dr.UNMASKED_RENDERER_WEBGL):'?';
-      setResult('r-webgl',true);
-      document.getElementById('d-webgl').textContent='v'+v2+' '+gpu.slice(0,50);
-      document.getElementById('d-webgl').style.color='rgba(255,255,255,0.2)';
-    }else{setResult('r-webgl',false,'ni podprt');fail=true;}
-  }catch(e){setResult('r-webgl',false,e.name);fail=true;}
+      techLines.push('GPU: v'+v2+' '+gpu);updateTech();
+      setStatus('gl','ok','DELUJE');
+    }else{throw new Error('ni podprt');}
+  }catch(e){setStatus('gl','fail','NE DELUJE',e.message);fail=true;}
 
-  if(fail)document.getElementById('ne-msg').style.display='block';
-  btn.disabled=false;btn.style.opacity='1';btn.textContent='Ponovi preveritev';
-});
+  showScreen('s3');
+  if(!fail){document.getElementById('result-ok').style.display='block';}
+  else{document.getElementById('result-fail').style.display='block';}
+}
+
+document.getElementById('btn-start').addEventListener('click',runChecks);
+document.getElementById('btn-retry').addEventListener('click',runChecks);
 </script>
 </body>
 </html>
