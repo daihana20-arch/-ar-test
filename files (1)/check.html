@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Preveritev sistema</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#000;color:#fff;font-family:'Helvetica Neue',Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 24px 48px;}
+h1{font-size:11px;letter-spacing:0.35em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:40px;}
+.checks{width:100%;max-width:340px;}
+.row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;}
+.lbl{font-size:10px;letter-spacing:0.2em;color:rgba(255,255,255,0.35);text-transform:uppercase;}
+.val{font-size:28px;font-weight:700;color:rgba(255,255,255,0.15);}
+.val.ok{color:#4eff91;}
+.val.ne{color:#ff4e4e;}
+.detail{font-size:9px;color:rgba(255,78,78,0.85);min-height:14px;margin-bottom:14px;word-break:break-all;line-height:1.4;}
+#cam-preview{width:100%;max-width:340px;height:180px;object-fit:cover;background:#111;border-radius:3px;display:none;margin-bottom:8px;}
+#cam-instr{display:none;font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.05em;margin-bottom:12px;max-width:340px;text-align:center;line-height:1.6;}
+#ne-msg{display:none;margin-top:8px;padding:16px;border:1px solid rgba(255,78,78,0.4);border-radius:3px;font-size:11px;color:rgba(255,78,78,0.9);line-height:1.7;max-width:340px;text-align:center;}
+#btn{margin-top:32px;padding:13px 36px;background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);font-size:10px;letter-spacing:0.35em;cursor:pointer;border-radius:2px;}
+#btn:active{background:rgba(255,255,255,0.07);}
+#note{margin-top:32px;max-width:340px;font-size:10px;color:rgba(255,255,255,0.3);line-height:1.9;text-align:center;}
+#ua{margin-top:20px;font-size:8px;color:rgba(255,255,255,0.18);word-break:break-all;max-width:340px;line-height:1.6;}
+</style>
+</head>
+<body>
+<h1>Preveritev sistema</h1>
+<div class="checks">
+  <div class="row"><span class="lbl">HTTPS</span><span class="val" id="r-https">—</span></div>
+  <div class="detail" id="d-https"></div>
+  <div class="row"><span class="lbl">Mikrofon</span><span class="val" id="r-mic">—</span></div>
+  <div class="detail" id="d-mic"></div>
+  <div class="row"><span class="lbl">Kamera</span><span class="val" id="r-cam">—</span></div>
+  <div class="detail" id="d-cam"></div>
+</div>
+<video id="cam-preview" autoplay playsinline muted></video>
+<div id="cam-instr">Usmerite kamero na roko ali predmete v bližini.</div>
+<div class="checks">
+  <div class="row"><span class="lbl">WebGL</span><span class="val" id="r-webgl">—</span></div>
+  <div class="detail" id="d-webgl"></div>
+</div>
+<div id="ne-msg">Preveritev ni uspela.<br>Prosimo, naredite posnetek zaslona<br>in ga pošljite organizatorju.</div>
+<button id="btn">Začni preveritev</button>
+<div id="note">Zahtevano: dovoljenje za mikrofon in kamero, HTTPS.<br>Če so vsi rezultati OK, bo aplikacija najverjetneje delovala na tej napravi.</div>
+<div id="ua"></div>
+<script>
+document.getElementById('ua').textContent=navigator.userAgent;
+var _micStream=null,_camStream=null;
+
+function stopAll(){
+  if(_micStream){_micStream.getTracks().forEach(function(t){t.stop();});_micStream=null;}
+  if(_camStream){_camStream.getTracks().forEach(function(t){t.stop();});_camStream=null;}
+  var p=document.getElementById('cam-preview');p.srcObject=null;p.style.display='none';
+  document.getElementById('cam-instr').style.display='none';
+}
+
+function setResult(id,ok,detail){
+  var el=document.getElementById(id);
+  el.textContent=ok?'OK':'NE';el.className='val '+(ok?'ok':'ne');
+  var de=document.getElementById(id.replace('r-','d-'));
+  if(de)de.textContent=(!ok&&detail)?detail:'';
+}
+
+document.getElementById('btn').addEventListener('click',async function(){
+  var btn=this;btn.disabled=true;btn.style.opacity='0.3';
+  document.getElementById('ne-msg').style.display='none';
+  stopAll();
+  ['r-https','r-mic','r-cam','r-webgl'].forEach(function(id){
+    var el=document.getElementById(id);el.textContent='…';el.className='val';
+    var de=document.getElementById(id.replace('r-','d-'));if(de)de.textContent='';
+  });
+  var fail=false;
+
+  // HTTPS
+  var sec=location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1';
+  setResult('r-https',sec,sec?'':location.protocol);
+  if(!sec)fail=true;
+
+  // Mikrofon
+  try{
+    _micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    setResult('r-mic',true);
+  }catch(e){setResult('r-mic',false,e.name);fail=true;}
+
+  // マイクを止めてからカメラを要求（本番と同じ順序）
+  if(_micStream){_micStream.getTracks().forEach(function(t){t.stop();});_micStream=null;}
+
+  // Kamera
+  try{
+    _camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    var prev=document.getElementById('cam-preview');
+    prev.srcObject=_camStream;prev.style.display='block';
+    await prev.play();
+
+    // 映像フレームを待つ（最大6秒）
+    await new Promise(function(resolve,reject){
+      var t0=Date.now();
+      var iv=setInterval(function(){
+        if(prev.readyState>=2&&prev.videoWidth>0&&prev.currentTime>0.1){clearInterval(iv);resolve();}
+        else if(Date.now()-t0>6000){clearInterval(iv);reject(new Error('timeout'));}
+      },200);
+    });
+
+    // ピクセル均一チェック：4コマ × 700ms（約2.1秒）、全コマ均一ならNE
+    document.getElementById('cam-instr').style.display='block';
+    var blanks=0;var lastRange=0;
+    for(var s=0;s<4;s++){
+      if(s>0)await new Promise(function(r){setTimeout(r,700);});
+      var oc=document.createElement('canvas');oc.width=32;oc.height=32;
+      var octx=oc.getContext('2d');
+      octx.drawImage(prev,0,0,32,32);
+      var px=octx.getImageData(0,0,32,32).data;
+      var rMin=255,rMax=0,gMin=255,gMax=0,bMin=255,bMax=0;
+      for(var i=0;i<px.length;i+=4){
+        if(px[i]<rMin)rMin=px[i];if(px[i]>rMax)rMax=px[i];
+        if(px[i+1]<gMin)gMin=px[i+1];if(px[i+1]>gMax)gMax=px[i+1];
+        if(px[i+2]<bMin)bMin=px[i+2];if(px[i+2]>bMax)bMax=px[i+2];
+      }
+      lastRange=Math.max(rMax-rMin,gMax-gMin,bMax-bMin);
+      if(lastRange<15)blanks++;
+    }
+    document.getElementById('cam-instr').style.display='none';
+    if(blanks===4)throw new Error('prazna slika (range='+lastRange+'/255)');
+    setResult('r-cam',true);
+  }catch(e){setResult('r-cam',false,e.name+' '+e.message);fail=true;}
+
+  // テスト完了 — カメラストリームを停止
+  stopAll();
+
+  // WebGL（一時canvas — このページに2Dキャンバスはないため安全）
+  try{
+    var tc=document.createElement('canvas');tc.width=1;tc.height=1;
+    var gl=tc.getContext('webgl2')||tc.getContext('webgl');
+    if(gl){
+      var v2=(typeof WebGL2RenderingContext!=='undefined'&&gl instanceof WebGL2RenderingContext)?2:1;
+      var dr=gl.getExtension('WEBGL_debug_renderer_info');
+      var gpu=dr?gl.getParameter(dr.UNMASKED_RENDERER_WEBGL):'?';
+      setResult('r-webgl',true);
+      document.getElementById('d-webgl').textContent='v'+v2+' '+gpu.slice(0,50);
+      document.getElementById('d-webgl').style.color='rgba(255,255,255,0.2)';
+    }else{setResult('r-webgl',false,'ni podprt');fail=true;}
+  }catch(e){setResult('r-webgl',false,e.name);fail=true;}
+
+  if(fail)document.getElementById('ne-msg').style.display='block';
+  btn.disabled=false;btn.style.opacity='1';btn.textContent='Ponovi preveritev';
+});
+</script>
+</body>
+</html>
