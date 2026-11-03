@@ -829,7 +829,12 @@ class VNet{
     this.pulses=[];
     this.age=0;
     this.maxAge=Math.floor(200+Math.random()*180);
-    this.offsetY=0;
+    this.offsetY=0;this.offsetX=0;
+    // 雨のように1つずつ落ちる：大きい（手前）ほど速い、少しずつ加速、風で斜めに
+    const near=this.block.dw/110;
+    this.vf=Math.max(0.15,1+(Math.random()*2-1)*RAIN.vary)*near; // この枝だけの速さの倍率
+    this.vy=RAIN.speed*H*this.vf;   // px/秒
+    this.wf=(0.7+Math.random()*0.6);
     this._grow();
   }
   _grow(){
@@ -855,33 +860,33 @@ class VNet{
     const ei=Math.floor(Math.random()*this.edges.length);
     this.pulses.push({ei,t:0,spd:0.012+Math.random()*0.018});
   }
-  update(){
+  update(dt){
     this.age++;
-    this.offsetY+=1.5;
+    this.vy+=RAIN.acc*RAIN.speed*H*this.vf*dt;
+    const wnd=Math.min(1,(weather.wind||0)/15);
+    this.vx=this.vy*RAIN.slant*wnd*this.wf;
+    this.offsetY+=this.vy*dt;this.offsetX+=this.vx*dt;
     for(let i=this.pulses.length-1;i>=0;i--){
       this.pulses[i].t+=this.pulses[i].spd;
       if(this.pulses[i].t>1)this.pulses.splice(i,1);
     }
     if(Math.random()<0.08)this._pulse();
   }
-  _drawEdges(ctx,baseA,oy){
+  _drawEdges(ctx,baseA,oy,ox){
     const blurMult=vnetBoostActive?2:1;
     for(const e of this.edges){
       const ea=baseA*(1-e.depth*0.09);
-      ctx.save();
-      ctx.strokeStyle=`rgba(160,238,255,${ea*0.65})`;
-      ctx.lineWidth=e.w;
-      ctx.shadowColor='rgba(140,230,255,0.95)';
-      ctx.shadowBlur=(3+e.w*2.5)*blurMult;
-      ctx.beginPath();ctx.moveTo(e.from.x,e.from.y+oy);ctx.lineTo(e.to.x,e.to.y+oy);ctx.stroke();
-      ctx.restore();
+      if(ea<0.01)continue;
+      ctx.beginPath();ctx.moveTo(e.from.x+ox,e.from.y+oy);ctx.lineTo(e.to.x+ox,e.to.y+oy);
+      ctx.strokeStyle=`rgba(140,230,255,${ea*0.18})`;ctx.lineWidth=e.w*4*blurMult;ctx.stroke(); // にじみ（軽い光）
+      ctx.strokeStyle=`rgba(160,238,255,${ea*0.75})`;ctx.lineWidth=e.w;ctx.stroke();
     }
   }
-  _drawPulses(ctx,baseA,oy){
+  _drawPulses(ctx,baseA,oy,ox){
     const col=this.color;
     for(const p of this.pulses){
       const e=this.edges[p.ei];if(!e)continue;
-      const px=e.from.x+(e.to.x-e.from.x)*p.t;
+      const px=e.from.x+(e.to.x-e.from.x)*p.t+ox;
       const py=e.from.y+(e.to.y-e.from.y)*p.t+oy;
       const pr=(0.9+e.w*0.5)*(vnetBoostActive?1.5:1);
       ctx.save();
@@ -898,14 +903,18 @@ class VNet{
   }
   draw(globalA){
     if(globalA<=0)return;
-    const lr=this.age/this.maxAge;
-    const fade=lr<0.08?lr/0.08:lr>0.8?(1-lr)/0.2:1;
+    const fade=Math.min(1,this.age/8); // 画面の上から入ってくるので、ほぼすぐに見える
     const baseA=fade*globalA*(vnetBoostActive?1.8:1);
     if(!this._dbgLogged){this._dbgLogged=true;console.log('[draw] baseA='+baseA.toFixed(3)+' fade='+fade.toFixed(3)+' edges='+this.edges.length);}
-    this._drawEdges(vctx,baseA,this.offsetY);
-    this._drawPulses(vctx,baseA,this.offsetY);
+    if(RAIN.streak>0){ // 落ちる方向と逆に、うすい残像を2つ
+      const sy=this.vy*RAIN.streak*0.06, sx=this.vx*RAIN.streak*0.06;
+      this._drawEdges(vctx,baseA*0.14,this.offsetY-sy*2,this.offsetX-sx*2);
+      this._drawEdges(vctx,baseA*0.3,this.offsetY-sy,this.offsetX-sx);
+    }
+    this._drawEdges(vctx,baseA,this.offsetY,this.offsetX);
+    this._drawPulses(vctx,baseA,this.offsetY,this.offsetX);
   }
-  get dead(){return this.age>=this.maxAge||this.block.dy+this.block.dh+this.offsetY>H+50;}
+  get dead(){return this.block.dy+this.offsetY>H+20||this.age>6000;} // ゆっくりの枝も画面の下まで落ちきる
 }
 
 function weatherVNetColors(){
@@ -927,30 +936,39 @@ function clearVNets(){
 }
 
 const MAX_TOTAL=90;
+// 雨の設定（2026-11-03）：速さは px/フレーム（画面の高さ800pxのとき）
+// 速さは「画面の高さ」を1としたときの1秒あたりの移動量（0.8 = 1秒で画面の8割）
+const RAIN={
+  speed:0.02,   // 平均の落ちる速さ（2026-11-03 プレビューで決定）
+  vary:1,       // 速さのばらつき（0=全部同じ、1=大きく違う）
+  acc:1.5,      // 加速（1秒あたり、速さに足す割合）
+  every:30,     // 何msごとに1つ降らせるか（小さいほど多い）
+  streak:0.9,   // 尾（残像）の長さ（0=なし）
+  slant:1       // 風による斜め（風速が強いほど斜め）
+};
+let _rainLast=0;
 let vnetGrowTimer=null;
 
 function startVNetGrowth(){
   if(effectEnded||stg<4)return;
   if(vnetGrowTimer)return;
-  vnetGrowTimer=setInterval(()=>{
-    if(vNets.length>=MAX_TOTAL)return;
-    const cols=weatherVNetColors();
-    const n=1+Math.floor(Math.random()*2);
-    for(let i=0;i<n;i++){
-      setTimeout(()=>{
-        if(vNets.length>=MAX_TOTAL)return;
-        const sz=80+Math.random()*60;
-        const cx=W*0.05+Math.random()*W*0.90;
-        const cy=Math.random()*H*0.25;
-        const block={dx:cx-sz/2,dy:cy-sz/2,dw:sz,dh:sz};
-        vNets.push(new VNet(block,cols[Math.floor(Math.random()*cols.length)]));
-      },Math.random()*200);
+  // 1つずつ、ばらばらのタイミングで、画面の上の外から降らせる
+  const drop=()=>{
+    if(!vnetGrowTimer)return;
+    if(vNets.length<MAX_TOTAL&&!effectEnded){
+      const cols=weatherVNetColors();
+      const sz=55+Math.random()*95;
+      const cx=-W*0.1+Math.random()*W*1.1;
+      const block={dx:cx-sz/2,dy:-sz*1.05-Math.random()*40,dw:sz,dh:sz};
+      vNets.push(new VNet(block,cols[Math.floor(Math.random()*cols.length)]));
     }
-  },250);
+    vnetGrowTimer=setTimeout(drop,RAIN.every*(0.3+Math.random()*1.4));
+  };
+  vnetGrowTimer=setTimeout(drop,0);
 }
 
 function stopVNetGrowth(){
-  if(vnetGrowTimer){clearInterval(vnetGrowTimer);vnetGrowTimer=null;}
+  if(vnetGrowTimer){clearTimeout(vnetGrowTimer);vnetGrowTimer=null;}
 }
 
 function activateVNetBoost(){
@@ -991,8 +1009,10 @@ function tickVascular(){
   vctx.clearRect(0,0,W,H);
   if(effectEnded||stg<4)return;
   if(vNets.length>0&&_vnetLogN++<10) console.log('[tick#'+_vnetLogN+'] nets='+vNets.length+' edges0='+vNets[0].edges.length);
+  const _now=performance.now();
+  const dt=Math.min(0.05,_rainLast?(_now-_rainLast)/1000:1/60);_rainLast=_now;
   for(let i=vNets.length-1;i>=0;i--){
-    vNets[i].update();
+    vNets[i].update(dt);
     vNets[i].draw(1);
     if(vNets[i].dead)vNets.splice(i,1);
   }
