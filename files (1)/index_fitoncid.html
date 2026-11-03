@@ -91,7 +91,9 @@ body>video:not(#ar-vessel){
 #phase-ar.visible{opacity:1;pointer-events:none}
 #video{display:none!important}
 #cv-main{position:fixed;inset:0;z-index:16;background:transparent}
-#cv-vasc{position:fixed;inset:0;z-index:19;pointer-events:none;background:transparent}
+#cv-vasc{position:fixed;inset:0;z-index:19;pointer-events:none;background:transparent;filter:drop-shadow(0 0 3.3px rgba(0,0,0,0.6))}
+#fit-veil{position:fixed;inset:0;z-index:3;pointer-events:none;background:rgba(0,0,0,0.25);opacity:0;transition:opacity 1.5s ease}
+#fit-veil.on{opacity:1}
 
 /* HUD */
 .hud{position:fixed;z-index:20;font-size:22px;letter-spacing:0.12em;line-height:2;text-shadow:0 0 10px rgba(0,0,0,1);pointer-events:none;opacity:0;transition:opacity 1.8s}
@@ -618,6 +620,7 @@ function startSilence(){
 // TRANSITION → AR
 // ═══════════════════════════════════════════════
 async function goToAR(){
+  {const fv=document.getElementById('fit-veil');if(fv)fv.classList.add('on');}
   phase=2;
   document.getElementById('video').style.display='none';
 
@@ -832,6 +835,8 @@ fitF=Math.max(W,H)*0.55;
 const FIT_NEAR=0.35,FIT_FAR=12,FIT_BR='165,236,255';
 const FIT_WC=['255,63,180','245,230,66','127,232,255','255,255,255'];
 const FIT_SPK=0.97,FIT_PD=0.89,FIT_SPD=0.6;
+// 見え方（2026-11-03 調整ページで決定）：背景25%暗く・強さ×2.9・線×1.2・暗い縁0.6
+const FIT_VIS={veil:0.25,g:2.9,w:1.2,o:0.6};
 let fitLimbs=[],fitPulses=[],fitMotes=[],fitGlints=[];
 let _fitLast=0,fitSAcc=0,fitPAcc=0,fitGAcc=0;
 let vnetBoostActive=false,vnetTiltFired=false;
@@ -879,11 +884,11 @@ function edgePts(e,L,t,wv,g){const A=wp(e.a,L,t,wv),B=wp(e.b,L,t,wv),C=wp(e.c,L,
 function onPts(pts,u){const f=u*(pts.length-1),i=Math.min(pts.length-2,Math.floor(f)),k=f-i,a=pts[i],b=pts[i+1];return[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k];}
 function drawEdge(pts,e,bright){for(let i=0;i<pts.length-1;i++){let a=pts[i],b=pts[i+1];if(a[2]<FIT_NEAR&&b[2]<FIT_NEAR)continue;
 if(a[2]<FIT_NEAR||b[2]<FIT_NEAR){const u=(FIT_NEAR-a[2])/(b[2]-a[2]);const m=[a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u,FIT_NEAR];if(a[2]<FIT_NEAR)a=m;else b=m;}
-const zm=(a[2]+b[2])/2,al=bright*dA(zm)*(1-e.depth*0.07);if(al<0.01)continue;const P=pr(a),Q=pr(b);const f=i/(pts.length-1);
-const lw=Math.min(9,(e.w0+(e.w1-e.w0)*f)*fitF*0.0035/zm),df=defocus(zm);
+const zm=(a[2]+b[2])/2,al=FIT_VIS.g*bright*dA(zm)*(1-e.depth*0.07);if(al<0.01)continue;const P=pr(a),Q=pr(b);const f=i/(pts.length-1);
+const lw=FIT_VIS.w*Math.min(9,(e.w0+(e.w1-e.w0)*f)*fitF*0.0035/zm),df=defocus(zm);
 vctx.strokeStyle='rgba('+FIT_BR+','+(al*(0.07+df*0.05))+')';vctx.lineWidth=lw*(4+df*6);vctx.beginPath();vctx.moveTo(P[0],P[1]);vctx.lineTo(Q[0],Q[1]);vctx.stroke();
-vctx.strokeStyle='rgba(200,248,255,'+(al*0.7*(1-df*0.75))+')';vctx.lineWidth=lw;vctx.beginPath();vctx.moveTo(P[0],P[1]);vctx.lineTo(Q[0],Q[1]);vctx.stroke();}}
-function spr(im,q,r,a){if(q[2]<FIT_NEAR||a<0.01)return;const P=pr(q);const s=r*2;vctx.globalAlpha=Math.min(1,a);vctx.drawImage(im,P[0]-s/2,P[1]-s/2,s,s);vctx.globalAlpha=1;}
+vctx.strokeStyle='rgba(200,248,255,'+Math.min(1,al*0.7*(1-df*0.75))+')';vctx.lineWidth=lw;vctx.beginPath();vctx.moveTo(P[0],P[1]);vctx.lineTo(Q[0],Q[1]);vctx.stroke();}}
+function spr(im,q,r,a){a*=FIT_VIS.g;if(q[2]<FIT_NEAR||a<0.01)return;const P=pr(q);const s=r*2;vctx.globalAlpha=Math.min(1,a);vctx.drawImage(im,P[0]-s/2,P[1]-s/2,s,s);vctx.globalAlpha=1;}
 function dot(q,r,c,a){if(q[2]<FIT_NEAR)return;const al=a*dA(q[2]);if(al<0.01)return;const P=pr(q),rr=Math.min(30,r*12/q[2]);
 vctx.fillStyle='rgba('+c+','+(0.25*al)+')';vctx.beginPath();vctx.arc(P[0],P[1],rr*2.6,0,6.28);vctx.fill();vctx.fillStyle='rgba('+c+','+(0.9*al)+')';vctx.beginPath();vctx.arc(P[0],P[1],Math.max(0.6,rr),0,6.28);vctx.fill();}
 function emit(tip,d,c,n){for(let k=0;k<n&&fitMotes.length<500;k++){const s=0.8+Math.random()*1.2;fitMotes.push({x:tip[0],y:tip[1],z:tip[2],vx:d[0]*s+(Math.random()-.5)*0.35,vy:d[1]*s+(Math.random()-.5)*0.35,vz:d[2]*s-0.3,age:0,life:3.5+Math.random()*2.5,c,r:0.8+Math.random()*1.4,tw:Math.random()*6.28});}}
@@ -960,7 +965,7 @@ function tickVascular(){
   let mz=-99;for(const e of L.edges){const z=e.a.z+L.oz;if(z>mz)mz=z;}if(mz<FIT_NEAR){fitLimbs.splice(i,1);continue;}
   for(const e of L.edges){const g=Math.min(1,Math.max(0,(L.age-e.birth)/0.6));if(g<=0)continue;const pts=edgePts(e,L,t,wv,g);if(g>=1)cache.set(e,pts);drawEdge(pts,e,bright);
   if(g>=1&&!e.kids.length){const tip=pts[pts.length-1];spr(fitSP[FIT_BR].glow,tip,Math.min(26,1.6*fitF*0.004/Math.max(FIT_NEAR,tip[2])*3),0.5*bright*dA(tip[2]));}}
-  vctx.strokeStyle='rgba(185,245,255,'+(0.35*bright)+')';vctx.lineWidth=0.6;vctx.beginPath();const tws=[];
+  vctx.strokeStyle='rgba(185,245,255,'+Math.min(1,0.35*bright*FIT_VIS.g)+')';vctx.lineWidth=0.6*FIT_VIS.w;vctx.beginPath();const tws=[];
   for(const nd of L.needles){const pts=cache.get(nd.e);if(!pts)continue;const b=onPts(pts,nd.u);if(b[2]<0.9||b[2]>9.5)continue;
   const tipq=[b[0]+nd.d[0],b[1]+nd.d[1],b[2]+nd.d[2]];const P=pr(b),Q=pr(tipq);vctx.moveTo(P[0],P[1]);vctx.lineTo(Q[0],Q[1]);
   if(nd.tw&&spk>0){const s=Math.pow(Math.max(0,Math.sin(t*nd.fq+nd.ph)),8);if(s>0.02)tws.push([Q,s,nd.c,tipq[2]]);}}vctx.stroke();
@@ -1210,6 +1215,7 @@ function startBranches(){
 }
 
 function startEnding(){
+  {const fv=document.getElementById('fit-veil');if(fv)fv.classList.remove('on');}
   const ar=document.getElementById('phase-ar');
   ar.style.transition='opacity '+FADE_MS+'ms ease';
   ar.style.opacity='0';
@@ -1315,5 +1321,6 @@ function startCountdown(){
 // INIT
 // ═══════════════════════════════════════════════
 </script>
+<div id="fit-veil"></div>
 </body>
 </html>
