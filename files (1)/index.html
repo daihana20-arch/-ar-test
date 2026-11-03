@@ -944,7 +944,7 @@ const RAIN={
   acc:1.5,      // 加速（1秒あたり、速さに足す割合）
   every:30,     // 何msごとに1つ降らせるか（小さいほど多い）
   streak:0.9,   // 尾（残像）の長さ（0=なし）
-  slant:1       // 風による斜め（風速が強いほど斜め）
+  slant:0.3     // 風による斜め（風速が強いほど斜め）
 };
 let _rainLast=0;
 let vnetGrowTimer=null;
