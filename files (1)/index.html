@@ -753,7 +753,7 @@ class FloatNum{
       {t:weather.humidity.toFixed(4),col:'80,190,255'},
       {t:weather.radiation.toFixed(4),col:'255,210,60'},
       {t:weather.wind.toFixed(4),col:'255,255,255'},
-      {t:(Math.random()*0.01).toFixed(6),col:'200,255,210'},
+      {t:weather.evapotranspiration.toFixed(4),col:'200,255,210'},
     ];
     const p=pool[Math.floor(Math.random()*pool.length)];
     this.text=p.t;this.col=p.col;
