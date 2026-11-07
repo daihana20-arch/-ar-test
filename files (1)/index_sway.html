@@ -185,7 +185,7 @@ body>video:not(#ar-vessel){
 #phase-end .poem-line{grid-area:1/1;transition:opacity 1.5s ease,transform 1.5s ease}
 #tl-debug{position:fixed;right:8px;bottom:8px;z-index:400;font:11px 'Courier New',monospace;
   color:#0f0;background:rgba(0,0,0,0.6);padding:4px 6px;pointer-events:none}
-#el2{max-width:86vw;margin:0 auto;padding:0 7vw;box-sizing:border-box;font-size:clamp(28px,7.5vw,48px);line-height:1.5}
+#el0,#el1,#el2{max-width:86vw;margin:0 auto;padding:0 7vw;box-sizing:border-box;font-size:clamp(28px,7.5vw,48px);line-height:1.5}
 </style>
 <script>
 // ── ?debug=1 : AR.jsより前にgetUserMediaを監視 ──
@@ -275,7 +275,9 @@ body>video:not(#ar-vessel){
 
 <!-- ENDING -->
 <div id="phase-end">
-  <p class="poem-line" id="el2">Pospravi mobitel in se v tišini poveži z drevesom.</p>
+  <p class="poem-line" id="el0">Ves čas sem tu.</p>
+  <p class="poem-line" id="el1">Pospravi telefon in pritisni uho k meni.</p>
+  <p class="poem-line" id="el2">V tišini poslušaj, kako živim.</p>
 </div>
 
 <div id="phase-text">
@@ -304,6 +306,8 @@ const LAT=46.227222,LON=15.259167;
 // ═══════════════════════════════════════════════
 let W=window.innerWidth,H=window.innerHeight;
 let weather={temp:14,humidity:65,radiation:180,wind:1.8,soilMoisture:0.3,evapotranspiration:2.5,vpd:0.8};
+const WIND_GAIN=4; // 風の感度。動きの計算だけに使う
+function windVis(ms){return Math.min(15,ms*WIND_GAIN);}
 let phase=0;
 
 let micAnalyser=null,micDataArr=null,_micStream=null;
@@ -634,6 +638,7 @@ async function fetchWeather(){
       vpd:c.vapour_pressure_deficit??0.8
     };
   }catch(e){}
+  if(_tlP.has('wnd'))weather.wind=+_tlP.get('wnd');
   updateHUD();
 }
 function updateHUD(){
@@ -670,7 +675,7 @@ class Particle{
     const c=this.cfg;
     this.x=W*(c.xMin+Math.random()*(c.xMax-c.xMin));
     this.y=H*(0.05+Math.random()*0.9);
-    const wf=weather.wind/10;
+    const wf=windVis(weather.wind)/10;
     this.vx=c.vxBase+(Math.random()-0.5)*c.vxSpread+wf*(c.wd||0);
     this.vy=c.vyBase-Math.random()*c.vyRange;
     this.size=c.sMin+Math.random()*c.sRange;
@@ -689,7 +694,7 @@ function buildParticles(){
   const rad=Math.max(0.1,weather.radiation/500);
   const hum=weather.humidity/100;
   const tmp=Math.max(0.1,(weather.temp+10)/45);
-  const wnd=Math.max(0.1,weather.wind/15);
+  const wnd=Math.max(0.1,windVis(weather.wind)/15);
   sunP=Array.from({length:Math.floor(38+rad*55)},()=>new Particle({r:255,g:210,b:60,xMin:0.1,xMax:0.9,vxBase:0,vxSpread:0.6,wd:0.3,vyBase:0.55*rad,vyRange:0.75*rad,sMin:1.2,sRange:2.8,lMin:120,lRange:160,op:0.6+rad*0.3}));
   waterP=Array.from({length:Math.floor(28+hum*45)},()=>new Particle({r:80,g:190,b:255,xMin:0,xMax:1,vxBase:0.2,vxSpread:0.8,wd:0.5,vyBase:0.15*hum,vyRange:0.25,sMin:1,sRange:2.2,lMin:180,lRange:200,op:0.4+hum*0.45}));
   heatP=Array.from({length:Math.floor(18+tmp*38)},()=>new Particle({r:255,g:80,b:215,xMin:0.2,xMax:0.8,vxBase:0,vxSpread:0.5,wd:0,vyBase:0.75*tmp,vyRange:0.55*tmp,sMin:0.6,sRange:1.6,lMin:80,lRange:120,op:0.5+tmp*0.35}));
@@ -741,7 +746,7 @@ function arLoop(now){
   _arLast=now;
   _arTime+=_arDt;
 
-  windS+=(Math.min(weather.wind,15)-windS)*Math.min(1,_arDt*0.3);
+  windS+=(windVis(weather.wind)-windS)*Math.min(1,_arDt*0.3);
 
   if(!arMarkerEl)arMarkerEl=document.querySelector('a-marker');
   const nowVisible=!!(arMarkerEl&&arMarkerEl.object3D&&arMarkerEl.object3D.visible);
@@ -779,7 +784,7 @@ function weatherVNetColors(){
   const rad=Math.min(1,weather.radiation/800);
   const hum=weather.humidity/100;
   const tmp=Math.min(1,Math.max(0,(weather.temp+5)/40));
-  const wnd=Math.min(1,weather.wind/15);
+  const wnd=Math.min(1,windVis(weather.wind)/15);
   const cols=[];
   const add=(c,f)=>{const n=1+Math.round(f*3);for(let i=0;i<n;i++)cols.push(c);};
   add('255,246,0',rad);
@@ -1197,7 +1202,7 @@ var HOLD_MS=(TL_DEBUG?+_tlP.get('t'):60)*1000; // 全部そろった状態の持
 var SCI_GAP_MS=3000;         // danes je… → vodni potencial…
 var SCI_HOLD_MS=10000;       // vodni potencial… からフェードまで
 var FADE_MS=6000;            // エフェクトのフェードアウト
-var LINE_IN_MS=1500,LINE_HOLD_MS=2000,LINE_OUT_MS=1500; // 詩の各行
+var LINE_IN_MS=1500,LINE_HOLD_MS=3500,LINE_OUT_MS=1500,LAST_HOLD_MS=6000; // 詩の各行
 var BLACK_MS=4000;           // 最後の行の後、真っ黒になるまで
 // 四角・文字のフェードイン時間は CSS の #hud-tl / #hud-tl>div（2.5s）
 
@@ -1259,9 +1264,10 @@ function startEnding(){
     const pe=document.getElementById('phase-end');
     pe.classList.add('visible');
     let t=800;
-    ['el2'].forEach(id=>{
+    ['el0','el1','el2'].forEach(id=>{
       const el=document.getElementById(id);
-      setTimeout(()=>el.classList.add('show'),t);t+=LINE_IN_MS+LINE_HOLD_MS;
+      const hold=id==='el2'?LAST_HOLD_MS:LINE_HOLD_MS;
+      setTimeout(()=>el.classList.add('show'),t);t+=LINE_IN_MS+hold;
       setTimeout(()=>el.classList.remove('show'),t);t+=LINE_OUT_MS;
     });
     setTimeout(()=>{_tlLabel='9 črno';pe.style.transition='background-color '+BLACK_MS+'ms ease';pe.style.backgroundColor='#000';},t);
