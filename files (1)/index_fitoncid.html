@@ -1208,13 +1208,13 @@ function startTimeline(){
   at(tWind,'4 wind',()=>hudLine(3));
   at(tWind+BRANCH_DELAY_MS,'4 wind+veje',()=>{stg=4;spkStart[4]=performance.now();startBranches();});
   const tSci=tWind+BRANCH_DELAY_MS+HOLD_MS;
-  const barMs=tSci+SCI_GAP_MS+SCI_HOLD_MS;
+  const barMs=tSci;
   const fxBar=document.getElementById('fx-bar');
   fxBar.classList.add('on');
   const fxFill=document.getElementById('fx-bar-fill');
   fxFill.style.transition='width '+barMs+'ms linear';
   requestAnimationFrame(()=>requestAnimationFrame(()=>{fxFill.style.width='100%';}));
-  at(tSci,'5 danes je…',()=>{showSciData();document.getElementById('sci-main').classList.add('on');});
+  at(tSci,'5 danes je…',()=>{showSciData();document.getElementById('sci-main').classList.add('on');const fb=document.getElementById('fx-bar');fb.style.transition='opacity 3s ease';fb.classList.remove('on');});
   at(tSci+SCI_GAP_MS,'6 vodni potencial…',()=>document.getElementById('sci-sub').classList.add('on'));
   at(tSci+SCI_GAP_MS+SCI_HOLD_MS,'7 fade',startEnding);
 }
