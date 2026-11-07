@@ -180,6 +180,9 @@ body>video:not(#ar-vessel){
   font-size:20px;letter-spacing:0.22em;color:rgba(255,255,255,0.3);text-align:center;
 }
 
+#fx-bar{position:fixed;top:10px;left:50%;transform:translateX(-50%);width:220px;height:4px;z-index:20;background:rgba(74,255,106,0.22);border-radius:2px;overflow:hidden;opacity:0;transition:opacity 1.5s ease;pointer-events:none}
+#fx-bar.on{opacity:1}
+#fx-bar-fill{height:100%;width:0%;background:#4aff6a;border-radius:2px;box-shadow:0 0 6px rgba(74,255,106,0.8)}
 /* ── ENDING / TIMELINE ── */
 #hud-tl>div{opacity:0;transition:opacity 2.5s ease}
 #hud-tl{transition:opacity 2.5s ease}
@@ -282,6 +285,7 @@ body>video:not(#ar-vessel){
 
   </div>
   <div id="hud-bl" class="hud">46°13′38″N · 15°15′33″E<br>AKUMULACIJA TIŠINE — 2026</div>
+  <div id="fx-bar"><div id="fx-bar-fill"></div></div>
 
   <div id="sci-panel">
     <div id="sci-main"></div>
@@ -1225,6 +1229,12 @@ function startTimeline(){
   at(tWind,'4 wind',()=>hudLine(3));
   at(tWind+BRANCH_DELAY_MS,'4 wind+veje',()=>{stg=4;spkStart[4]=performance.now();startBranches();});
   const tSci=tWind+BRANCH_DELAY_MS+HOLD_MS;
+  const barMs=tSci+SCI_GAP_MS+SCI_HOLD_MS;
+  const fxBar=document.getElementById('fx-bar');
+  fxBar.classList.add('on');
+  const fxFill=document.getElementById('fx-bar-fill');
+  fxFill.style.transition='width '+barMs+'ms linear';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{fxFill.style.width='100%';}));
   at(tSci,'5 danes je…',()=>{showSciData();document.getElementById('sci-main').classList.add('on');});
   at(tSci+SCI_GAP_MS,'6 vodni potencial…',()=>document.getElementById('sci-sub').classList.add('on'));
   at(tSci+SCI_GAP_MS+SCI_HOLD_MS,'7 fade',startEnding);
@@ -1252,6 +1262,9 @@ function startEnding(){
     if(vid)vid.pause();
     const pe=document.getElementById('phase-end');
     pe.classList.add('visible');
+    const tEl2=800+2*(LINE_IN_MS+LINE_HOLD_MS+LINE_OUT_MS);
+    pe.style.transition='opacity 3s ease, background-color '+tEl2+'ms ease';
+    pe.style.backgroundColor='#000';
     let t=800;
     ['el0','el1','el2'].forEach(id=>{
       const el=document.getElementById(id);
@@ -1259,7 +1272,7 @@ function startEnding(){
       setTimeout(()=>el.classList.add('show'),t);t+=LINE_IN_MS+hold;
       setTimeout(()=>el.classList.remove('show'),t);t+=LINE_OUT_MS;
     });
-    setTimeout(()=>{_tlLabel='9 črno';pe.style.transition='background-color '+BLACK_MS+'ms ease';pe.style.backgroundColor='#000';},t);
+    setTimeout(()=>{_tlLabel='9 črno';},t);
   },FADE_MS);
 }
 
